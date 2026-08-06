@@ -2,6 +2,48 @@
 
 A modern, production-ready Next.js boilerplate with comprehensive authentication, admin dashboard, and user management features. Built by Low-Ops for rapid application development.
 
+<p align="left">
+  <img src="./public/logo.svg" height="50" width="60" alt="Low-Ops logo" style="background: white; padding: 20px; border-radius: 10px; margin-right: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
+  <img src="./public/nextjs-logo.svg" height="50" width="60" alt="NextJS logo" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
+</p>
+
+## Local development
+
+#### Create PostgreSQL and MinIO (s3 compatible storage)
+
+```bash
+npm run db:create
+```
+
+#### Install dependencies
+
+```bash
+npm install
+```
+
+#### Run database migrations (to create tables and indexes)
+
+```bash
+npm run db:migrate
+```
+
+#### Start development server
+
+```bash
+npm run dev
+```
+
+#### Seed the database with mock data (for development purposes)
+
+```bash
+npm run db:seed
+```
+
+- App: `PORT` (default `8000`), health `GET /ready`
+- Metrics: `METRICS_PORT` (default `8001`) Prometheus `/metrics`
+- HTML and API responses use no-cache headers
+- Compose includes PostgreSQL and MinIO
+
 ## ✨ Features
 
 ### 🔐 Authentication
@@ -26,9 +68,6 @@ A modern, production-ready Next.js boilerplate with comprehensive authentication
 - **User Actions** - Delete users, revoke sessions
 - **Responsive Admin UI** with modern design
 
-**Admin Panel**
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/be71d4d2-abde-4acc-93a0-29041940b9ad" />
-
 ### 🎨 UI/UX
 
 - **Modern Design System** with Tailwind CSS
@@ -42,6 +81,7 @@ A modern, production-ready Next.js boilerplate with comprehensive authentication
 - **Framework:** Next.js 16 with App Router
 - **Authentication:** Better Auth
 - **Database:** PostgreSQL with Drizzle ORM
+- **Storage:** MinIO (s3 compatible storage)
 - **Styling:** Tailwind CSS
 - **UI Components:** Radix UI
 - **Form Handling:** React Hook Form
@@ -49,59 +89,11 @@ A modern, production-ready Next.js boilerplate with comprehensive authentication
 - **Email:** Resend
 - **TypeScript:** Full type safety
 
-## 🚀 Quick Start
-
 ### Prerequisites
 
 - Node.js 18+
 - Docker (for local PostgreSQL and MinIO)
 - Resend account (for email functionality)
-
-### Installation
-
-1. **Clone the repository**
-
-   ```bash
-   git clone <repository-url>
-   cd low-ops-nextjs-template
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   npm install
-   ```
-
-3. **Environment Setup**
-
-   Copy the `.env.example` file to `.env` and fill in the values.
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Database and storage use the [Low-Ops application specification](https://github.com/low-ops/low-ops-application-specification/blob/main/application-specification.md) env vars: `POSTGRES_*` and `S3_*`.
-
-4. **Start local services**
-
-   ```bash
-   npm run db:create
-   ```
-
-5. **Database Setup**
-
-   ```bash
-   npm run db:push
-   npm run db:seed
-   ```
-
-6. **Start Development Server**
-
-   ```bash
-   npm run dev
-   ```
-
-Visit `http://localhost:3000` to see your application!
 
 ## 📁 Project Structure
 
@@ -128,52 +120,9 @@ src/
 - `npm build` - Build for production
 - `npm start` - Start production server
 - `npm lint` - Run ESLint
+- `npm db:create` - Creates database and minio in your local docker
 - `npm db:generate` - Generate database migrations
 - `npm db:migrate` - Run database migrations
 - `npm db:push` - Push database migrations to the database
 - `npm db:studio` - Open the Drizzle ORM Studio
-
-## 🔑 Key Features Explained
-
-### Authentication Flow
-
-1. **Registration:** Users sign up with email/password
-2. **Email Verification:** Automated email verification process
-3. **Login:** Secure session-based authentication
-
-### Admin Features
-
-- **User Management:** Full CRUD operations on user accounts
-- **Role Management:** Assign and modify user roles
-- **Security Actions:** Ban users, revoke sessions, delete accounts
-- **Audit Trail:** Track user actions and changes
-
-## 🚀 Deployment
-
-### Vercel (Recommended)
-
-1. Push your code to GitHub
-2. Connect your repository to Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy!
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙋 Support
-
-For support and questions:
-
-- Create an issue in this repository
-- Contact Low-Ops team
-
----
-
-**Built with ❤️ by Low-Ops**
-
-Ready to build something amazing? Get started with Low-Ops Auth Starter today!
+- `npm db:seed` - Seed the database with mock data
