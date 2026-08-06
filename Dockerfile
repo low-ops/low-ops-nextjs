@@ -46,9 +46,10 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 COPY --from=build /app/drizzle ./drizzle
-COPY scripts/start.sh ./start.sh
-RUN chmod +x ./start.sh
+# COPY scripts/start.sh ./start.sh
+# RUN chmod +x ./start.sh
 
 EXPOSE $PORT
 
-CMD ["./start.sh"]
+# CMD ["./start.sh"]
+CMD ["node", "server.js"]
