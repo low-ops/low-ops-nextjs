@@ -1,62 +1,128 @@
 # Low-Ops Nextjs Starter Template
 
-A Next.js starter aligned with the [Low-Ops application specification](https://github.com/low-ops/low-ops-application-specification).
+A modern, production-ready Next.js boilerplate with comprehensive authentication, admin dashboard, and user management features. Built by Low-Ops for rapid application development.
+
+<p align="left">
+  <img src="./public/logo.svg" height="50" width="60" alt="Low-Ops logo" style="background: white; padding: 20px; border-radius: 10px; margin-right: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
+  <img src="./public/nextjs-logo.svg" height="50" width="60" alt="NextJS logo" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
+</p>
 
 ## Local development
 
-Start PostgreSQL and MinIO:
+#### Create PostgreSQL and MinIO (s3 compatible storage)
 
 ```bash
 npm run db:create
 ```
 
-Install dependencies, migrate, and seed:
+#### Install dependencies
 
 ```bash
 npm install
-npm run db:migrate
-npm run db:seed
 ```
 
-Start the app on port 8000:
+#### Run database migrations (to create tables and indexes)
+
+```bash
+npm run db:migrate
+```
+
+#### Start development server
 
 ```bash
 npm run dev
 ```
 
-Run the full stack in Docker:
+#### Seed the database with mock data (for development purposes)
 
 ```bash
-npm run compose:up
+npm run db:seed
 ```
 
-## Platform requirements
+- App: `PORT` (default `8000`), health `GET /ready`
+- Metrics: `METRICS_PORT` (default `8001`) Prometheus `/metrics`
+- HTML and API responses use no-cache headers
+- Compose includes PostgreSQL and MinIO
 
-- App port: `PORT` (default `8000`)
-- Metrics port: `METRICS_PORT` (default `8001`)
-- Health check: `GET /ready`
-- Metrics: `GET /metrics` on the metrics port
-- PostgreSQL: `POSTGRES_*` env vars
-- S3 storage: `S3_*` env vars with path-style access
-- No-cache headers on HTML and dynamic API responses
-- Structured JSON logs to stdout/stderr
-- Optional OpenTelemetry when `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_SERVICE_NAME` are set
+## ✨ Features
 
-## Scripts
+### 🔐 Authentication
 
-- `npm run dev` - development server
-- `npm run build` - production build
-- `npm run start` - production server
-- `npm run db:create` - start PostgreSQL and MinIO
-- `npm run compose:up` - build and run the full Docker stack
-- `npm run db:migrate` - apply Drizzle migrations
-- `npm run db:seed` - seed development data
+- **Email & Password Authentication** with email verification
+- **Session Management** with secure token handling
+- **Account Linking** support
+- **Role-based Access Control** (Admin, User roles)
 
-## API documentation
+### 👥 User Management
 
-See [`openapi.yaml`](./openapi.yaml) for custom API routes.
+- **User Registration & Login** with form validation
+- **Email Verification** system
+- **Profile Management**
+- **User Banning/Unbanning** with expiration dates
+- **Session Revocation** for security
 
-## Default seed admin
+### 🛡️ Admin Dashboard
 
-- Email: `admin@gmail.com`
-- Password: `admin`
+- **User Management Interface** - View, edit, ban/unban users
+- **Role Assignment** - Manage user permissions
+- **User Actions** - Delete users, revoke sessions
+- **Responsive Admin UI** with modern design
+
+### 🎨 UI/UX
+
+- **Modern Design System** with Tailwind CSS
+- **Responsive Layout** for all devices
+- **Component Library** with Radix UI primitives
+- **Form Validation** with React Hook Form + Zod
+- **Toast Notifications** for user feedback
+
+## 🛠️ Tech Stack
+
+- **Framework:** Next.js 16 with App Router
+- **Authentication:** Better Auth
+- **Database:** PostgreSQL with Drizzle ORM
+- **Storage:** MinIO (s3 compatible storage)
+- **Styling:** Tailwind CSS
+- **UI Components:** Radix UI
+- **Form Handling:** React Hook Form
+- **Validation:** Zod
+- **Email:** Resend
+- **TypeScript:** Full type safety
+
+### Prerequisites
+
+- Node.js 18+
+- Docker (for local PostgreSQL and MinIO)
+- Resend account (for email functionality)
+
+## 📁 Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── admin/             # Admin dashboard pages
+│   ├── api/               # API routes
+│   ├── auth/              # Authentication pages
+│   └── dashboard/         # User dashboard
+├── components/            # React components
+│   ├── admin/            # Admin-specific components
+│   ├── auth/             # Authentication forms
+│   ├── landing/          # Landing page components
+│   └── ui/               # Reusable UI components
+├── db/                   # Database configuration
+├── lib/                  # Utility libraries
+└── utils/                # Helper functions
+```
+
+## 🔧 Available Scripts
+
+- `npm dev` - Start development server with Turbopack
+- `npm build` - Build for production
+- `npm start` - Start production server
+- `npm lint` - Run ESLint
+- `npm db:create` - Creates database and minio in your local docker
+- `npm db:generate` - Generate database migrations
+- `npm db:migrate` - Run database migrations
+- `npm db:push` - Push database migrations to the database
+- `npm db:studio` - Open the Drizzle ORM Studio
+- `npm db:seed` - Seed the database with mock data
