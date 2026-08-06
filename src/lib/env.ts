@@ -78,3 +78,31 @@ export function getOtelConfig() {
     serviceName,
   };
 }
+
+const authSchema = z.object({
+  BETTER_AUTH_SECRET: z.string().min(32),
+  BETTER_AUTH_URL: z.string().url().optional(),
+  APPLICATION_URL: z.string().url().optional(),
+});
+
+export function getAuthConfig() {
+  const config = authSchema.parse(process.env);
+  const baseURL = config.BETTER_AUTH_URL ?? config.APPLICATION_URL;
+
+  if (!baseURL) {
+    throw new Error(
+      "Set BETTER_AUTH_URL or APPLICATION_URL for authentication callbacks.",
+    );
+  }
+
+  return {
+    secret: config.BETTER_AUTH_SECRET,
+    baseURL: baseURL.replace(/\/$/, ""),
+  };
+}
+
+export function validateRuntimeEnv() {
+  getPostgresConfig();
+  getS3Config();
+  getAuthConfig();
+}

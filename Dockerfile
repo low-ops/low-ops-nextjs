@@ -12,6 +12,8 @@ FROM base AS build
 
 ARG BETTER_AUTH_SECRET=build-time-secret-not-used-at-runtime-32chars
 ENV BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
+ENV BETTER_AUTH_URL=http://localhost:8000
+ENV APPLICATION_URL=http://localhost:8000
 ENV POSTGRES_HOST=build
 ENV POSTGRES_PORT=5432
 ENV POSTGRES_DATABASE=build
@@ -44,7 +46,9 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 COPY --from=build /app/drizzle ./drizzle
+COPY scripts/start.sh ./start.sh
+RUN chmod +x ./start.sh
 
 EXPOSE $PORT
 
-CMD ["node", "server.js"]
+CMD ["./start.sh"]

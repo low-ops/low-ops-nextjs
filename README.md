@@ -44,6 +44,18 @@ npm run db:seed
 - HTML and API responses use no-cache headers
 - Compose includes PostgreSQL and MinIO
 
+## Low-Ops deployment env vars
+
+Required in addition to the spec defaults:
+
+| Variable | Example | Description |
+|---|---|---|
+| `BETTER_AUTH_SECRET` | output of `openssl rand -base64 32` | Auth signing secret (min 32 chars) |
+| `BETTER_AUTH_URL` | `https://myapp.example.com` | Public app URL for auth callbacks |
+| `APPLICATION_URL` | `https://myapp.example.com` | Used as fallback for `BETTER_AUTH_URL` |
+
+`PORT` defaults to `8000` in the container if the platform does not set it.
+
 ## ✨ Features
 
 ### 🔐 Authentication
