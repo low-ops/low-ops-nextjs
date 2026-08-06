@@ -24,8 +24,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} antialiased bg-background`}>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} antialiased bg-background`}
+        suppressHydrationWarning
+      >
         {children}
         <Toaster />
       </body>
