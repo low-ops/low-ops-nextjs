@@ -60,9 +60,28 @@ export function getMetricsPort() {
   return Number.isFinite(port) ? port : 8001;
 }
 
+function normalizeAppUrl(value: string | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const withProtocol =
+    trimmed.startsWith("http://") || trimmed.startsWith("https://")
+      ? trimmed
+      : `https://${trimmed}`;
+
+  try {
+    const url = new URL(withProtocol);
+    const pathname = url.pathname.replace(/\/$/, "");
+    return `${url.protocol}//${url.host}${pathname === "/" ? "" : pathname}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export function getApplicationUrl() {
-  const value = process.env.APPLICATION_URL?.trim();
-  return value ? value.replace(/\/$/, "") : undefined;
+  return normalizeAppUrl(process.env.APPLICATION_URL);
 }
 
 export function getOtelConfig() {
@@ -81,23 +100,23 @@ export function getOtelConfig() {
 
 const authSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
-  BETTER_AUTH_URL: z.string().url().optional(),
-  APPLICATION_URL: z.string().url().optional(),
 });
 
 export function getAuthConfig() {
-  const config = authSchema.parse(process.env);
-  const baseURL = config.BETTER_AUTH_URL ?? config.APPLICATION_URL;
+  const { BETTER_AUTH_SECRET } = authSchema.parse(process.env);
+  const baseURL =
+    normalizeAppUrl(process.env.BETTER_AUTH_URL) ??
+    normalizeAppUrl(process.env.APPLICATION_URL);
 
   if (!baseURL) {
     throw new Error(
-      "Set BETTER_AUTH_URL or APPLICATION_URL for authentication callbacks.",
+      "Set BETTER_AUTH_URL or APPLICATION_URL to a valid public app URL.",
     );
   }
 
   return {
-    secret: config.BETTER_AUTH_SECRET,
-    baseURL: baseURL.replace(/\/$/, ""),
+    secret: BETTER_AUTH_SECRET,
+    baseURL,
   };
 }
 
