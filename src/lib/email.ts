@@ -8,7 +8,7 @@ export const sendEmail = async (payload: {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const response = await resend.emails.send({
-      from: "Zexa Technologies <no-reply@zexa.app>",
+      from: "Low-Ops <no-reply@low-ops.com>",
       ...payload,
     });
 

@@ -45,7 +45,7 @@ const LoginForm = () => {
     const result = await loginUser(data);
     if (result.success) {
       setFormState({ success: result.success.reason });
-      router.push("/dashboard");
+      router.push("/admin/users");
     } else if (result.error) {
       setFormState({ error: result.error.reason });
     }

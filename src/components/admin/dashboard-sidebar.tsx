@@ -1,10 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Users, Settings, LogOut, GalleryVerticalEnd } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 import { authClient } from "@/lib/auth-client";
+import { LogOut, Settings, Users } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 
 import {
   Sidebar,
@@ -46,15 +46,15 @@ export function DashboardSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="#">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <GalleryVerticalEnd className="size-4" />
+              <Link href="/admin">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
+                  <Logo size={32} />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-semibold">Admin Panel</span>
                   <span className="">v1.0.0</span>
                 </div>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

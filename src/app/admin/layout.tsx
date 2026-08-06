@@ -12,7 +12,7 @@ export default async function AdminLayout({
     headers: await headers(),
   });
 
-  if (!session || session.user.role !== "admin") {
+  if (!session) {
     return notFound();
   }
 

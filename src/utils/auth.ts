@@ -84,7 +84,7 @@ export async function createUser(data: {
     try {
       await authClient.sendVerificationEmail({
         email: data.email,
-        callbackURL: "/dashboard",
+        callbackURL: "/admin/users",
       });
     } catch (error) {
       console.error("Failed to send verification email:", error);

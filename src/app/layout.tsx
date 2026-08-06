@@ -1,7 +1,7 @@
-import "./globals.css";
 import type { Metadata } from "next";
-import { Toaster } from "react-hot-toast";
 import { Inter } from "next/font/google";
+import { Toaster } from "react-hot-toast";
+import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -9,8 +9,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Zexa Better Auth",
+  title: "Low-Ops Nextjs Template",
   description: "A Next.js boilerplate for building web applications",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

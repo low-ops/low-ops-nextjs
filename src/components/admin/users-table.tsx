@@ -1,21 +1,23 @@
 "use client";
+
+import { format } from "date-fns";
 import {
-  CheckCircle,
-  XCircle,
-  Mail,
   Ban,
   Check,
+  CheckCircle,
+  Mail,
   Search,
-  Users,
   Shield,
   User,
   UserPlus,
+  Users,
+  XCircle,
 } from "lucide-react";
-import { format } from "date-fns";
-import useSWR from "swr";
-import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -29,29 +31,39 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Skeleton } from "@/components/ui/skeleton";
 
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserWithDetails } from "@/utils/users";
-import { GithubIcon, GoogleIcon } from "../ui/icons";
-import { UserActions } from "./user-actions";
+import { Badge } from "@/components/ui/badge";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationPrevious,
-  PaginationNext,
-  PaginationEllipsis,
-} from "@/components/ui/pagination";
+import { UserWithDetails } from "@/utils/users";
+import { GithubIcon, GoogleIcon } from "../ui/icons";
+import { UserActions } from "./user-actions";
 import { UserAddDialog } from "./user-add-dialog";
+
+const TABLE_HEADINGS = [
+  { label: "Name" },
+  { label: "Verification" },
+  { label: "Linked Accounts" },
+  { label: "Role" },
+  { label: "Status" },
+  { label: "Last Sign In" },
+  { label: "Created At" },
+  { label: "Actions", className: "w-[80px]" },
+];
 
 // Fetcher function for SWR
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -130,7 +142,7 @@ export function UsersTable() {
           <input
             type="text"
             placeholder="Search email..."
-            className="pl-8 pr-2 py-2 border rounded-md text-sm bg-background w-[200px]"
+            className="pl-8 pr-2 py-2 border rounded-md text-sm bg-background w-50"
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);
@@ -146,7 +158,7 @@ export function UsersTable() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[140px] flex items-center gap-2">
+          <SelectTrigger className="w-35 flex items-center gap-2">
             <span className="flex items-center gap-2">
               {role === "all" ? (
                 <Users className="w-4 h-4" />
@@ -193,6 +205,61 @@ export function UsersTable() {
   );
 
   if (error) return <div>Failed to load users</div>;
+
+  const renderTableHeadings = () => {
+    return TABLE_HEADINGS.map((col) => (
+      <TableHead
+        key={col.label}
+        className={[
+          col.className,
+          "px-4 py-3 text-xs font-medium text-muted-foreground",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {col.label}
+      </TableHead>
+    ));
+  };
+
+  const renderTableBodyWithoutData = () => {
+    return Array.from({ length: 3 }).map((_, index) => (
+      <TableRow key={index}>
+        <TableCell className="px-4 py-3">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-30" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+          </div>
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          <Skeleton className="h-6 w-20" />
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          <div className="flex -space-x-2">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-8 rounded-full" />
+            ))}
+          </div>
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          <Skeleton className="h-6 w-15" />
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          <Skeleton className="h-4 w-35" />
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          <Skeleton className="h-4 w-35" />
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          <Skeleton className="h-8 w-8 rounded-md" />
+        </TableCell>
+      </TableRow>
+    ));
+  };
+
   if (!data)
     return (
       <div className="space-y-4 border-accent-foreground">
@@ -200,68 +267,9 @@ export function UsersTable() {
         <div className="overflow-hidden">
           <Table className="text-sm">
             <TableHeader>
-              <TableRow>
-                {[
-                  { label: "Name" },
-                  { label: "Verification" },
-                  { label: "Linked Accounts" },
-                  { label: "Role" },
-                  { label: "Status" },
-                  { label: "Last Sign In" },
-                  { label: "Created At" },
-                  { label: "Actions", className: "w-[80px]" },
-                ].map((col) => (
-                  <TableHead
-                    key={col.label}
-                    className={[
-                      col.className,
-                      "px-4 py-3 text-xs font-medium text-muted-foreground",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  >
-                    {col.label}
-                  </TableHead>
-                ))}
-              </TableRow>
+              <TableRow>{renderTableHeadings()}</TableRow>
             </TableHeader>
-            <TableBody>
-              {Array.from({ length: 3 }).map((_, index) => (
-                <TableRow key={index}>
-                  <TableCell className="px-4 py-3">
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-[120px]" />
-                        <Skeleton className="h-3 w-[160px]" />
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <Skeleton className="h-6 w-[80px]" />
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <div className="flex -space-x-2">
-                      {Array.from({ length: 2 }).map((_, i) => (
-                        <Skeleton key={i} className="h-8 w-8 rounded-full" />
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <Skeleton className="h-6 w-[60px]" />
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <Skeleton className="h-4 w-[140px]" />
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <Skeleton className="h-4 w-[140px]" />
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <Skeleton className="h-8 w-8 rounded-md" />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
+            <TableBody>{renderTableBodyWithoutData()}</TableBody>
           </Table>
         </div>
       </div>
@@ -272,10 +280,12 @@ export function UsersTable() {
   // Pagination logic for shadcn/ui Pagination
   const renderPagination = () => {
     if (totalPages <= 1) return null;
+
     const pageNumbers = [];
     const maxPagesToShow = 5;
     let startPage = Math.max(1, page - 2);
     let endPage = Math.min(totalPages, page + 2);
+
     if (endPage - startPage < maxPagesToShow - 1) {
       if (startPage === 1) {
         endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
@@ -283,11 +293,13 @@ export function UsersTable() {
         startPage = Math.max(1, endPage - maxPagesToShow + 1);
       }
     }
+
     for (let i = startPage; i <= endPage; i++) {
       pageNumbers.push(i);
     }
+
     return (
-      <Pagination>
+      <Pagination className="flex-1 md:justify-end">
         <PaginationContent>
           <PaginationItem>
             <PaginationPrevious
@@ -340,204 +352,143 @@ export function UsersTable() {
     );
   };
 
+  const renderTableBodyWithData = () => {
+    return users.map((user: UserWithDetails) => (
+      <TableRow key={user.id}>
+        <TableCell className="px-4 py-3">
+          <div className="flex items-center gap-4">
+            <Avatar>
+              <AvatarImage src={user.avatarUrl} alt={user.name} />
+              <AvatarFallback className="text-xs">
+                {user.name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">
+                {user.name}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {user.email}
+              </span>
+            </div>
+          </div>
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          {user.verified ? (
+            <Badge
+              variant="outline"
+              className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200 dark:border-green-700 flex items-center gap-1 px-2 py-1 text-xs"
+            >
+              <CheckCircle className="h-3 w-3" />
+              Verified
+            </Badge>
+          ) : (
+            <Badge
+              variant="outline"
+              className="bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-700 flex items-center gap-1 px-2 py-1 text-xs"
+            >
+              <XCircle className="h-3 w-3" />
+              Unverified
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          <div className="flex -space-x-2">
+            {user.accounts.map((account) => (
+              <div
+                key={account}
+                className="rounded-full bg-muted p-1.5 text-muted-foreground dark:bg-neutral-700"
+                title={account}
+              >
+                {getAccountIcon(account)}
+              </div>
+            ))}
+          </div>
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          <Badge
+            variant="outline"
+            className={`flex items-center gap-1 px-2 py-1 text-xs ${
+              user.role === "admin"
+                ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700"
+                : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700"
+            }`}
+          >
+            {user.role === "admin" ? (
+              <Shield className="h-3 w-3" />
+            ) : (
+              <User className="h-3 w-3" />
+            )}
+            {user.role
+              ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+              : "User"}
+          </Badge>
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          {user.banned ? (
+            <div className="flex flex-col gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="destructive"
+                    className="flex items-center gap-1 px-2 py-1 text-xs cursor-help"
+                  >
+                    <Ban className="h-3 w-3" />
+                    Banned
+                  </Badge>
+                </TooltipTrigger>
+                {user.banReason && (
+                  <TooltipContent>Reason: {user.banReason}</TooltipContent>
+                )}
+              </Tooltip>
+              {user.banExpires && (
+                <span className="text-xs text-muted-foreground">
+                  Expires: {format(user.banExpires, "MMM d, yyyy")}
+                </span>
+              )}
+            </div>
+          ) : (
+            <Badge
+              variant="outline"
+              className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200 dark:border-green-700 flex items-center gap-1 px-2 py-1 text-xs"
+            >
+              <Check className="h-3 w-3" />
+              Active
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell className="px-4 py-3 text-xs text-muted-foreground">
+          {user.lastSignIn
+            ? format(user.lastSignIn, "MMM d, yyyy 'at' h:mm a")
+            : "Never"}
+        </TableCell>
+        <TableCell className="px-4 py-3 text-xs text-muted-foreground">
+          {format(user.createdAt, "MMM d, yyyy 'at' h:mm a")}
+        </TableCell>
+        <TableCell className="px-4 py-3">
+          <UserActions user={user} onActionComplete={handleActionComplete} />
+        </TableCell>
+      </TableRow>
+    ));
+  };
+
   return (
     <div className="space-y-4">
       {filterControls}
       <div className="overflow-hidden rounded-lg border-muted border-2 ">
         <Table className="text-sm ">
           <TableHeader className="bg-muted sticky top-0 z-10">
-            <TableRow>
-              {[
-                { label: "Name" },
-                { label: "Verification" },
-                { label: "Linked Accounts" },
-                { label: "Role" },
-                { label: "Status" },
-                { label: "Last Sign In" },
-                { label: "Created At" },
-                { label: "Actions", className: "w-[80px]" },
-              ].map((col) => (
-                <TableHead
-                  key={col.label}
-                  className={[
-                    col.className,
-                    "px-4 py-3 text-xs font-medium text-muted-foreground",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  {col.label}
-                </TableHead>
-              ))}
-            </TableRow>
+            <TableRow>{renderTableHeadings()}</TableRow>
           </TableHeader>
           <TableBody>
             {isLoading
-              ? Array.from({ length: 3 }).map((_, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="px-4 py-3">
-                      <div className="flex items-center gap-4">
-                        <Skeleton className="h-10 w-10 rounded-full" />
-                        <div className="space-y-2">
-                          <Skeleton className="h-4 w-[120px]" />
-                          <Skeleton className="h-3 w-[160px]" />
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <Skeleton className="h-6 w-[80px]" />
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="flex -space-x-2">
-                        {Array.from({ length: 2 }).map((_, i) => (
-                          <Skeleton key={i} className="h-8 w-8 rounded-full" />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <Skeleton className="h-6 w-[60px]" />
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <Skeleton className="h-4 w-[140px]" />
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <Skeleton className="h-4 w-[140px]" />
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <Skeleton className="h-8 w-8 rounded-md" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              : users.map((user: UserWithDetails) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="px-4 py-3">
-                      <div className="flex items-center gap-4">
-                        <Avatar>
-                          <AvatarImage src={user.avatarUrl} alt={user.name} />
-                          <AvatarFallback className="text-xs">
-                            {user.name.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-foreground">
-                            {user.name}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {user.email.replace(/^[^@]+/, (match) =>
-                              "*".repeat(match.length),
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      {user.verified ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200 dark:border-green-700 flex items-center gap-1 px-2 py-1 text-xs"
-                        >
-                          <CheckCircle className="h-3 w-3" />
-                          Verified
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-700 flex items-center gap-1 px-2 py-1 text-xs"
-                        >
-                          <XCircle className="h-3 w-3" />
-                          Unverified
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <div className="flex -space-x-2">
-                        {user.accounts.map((account) => (
-                          <div
-                            key={account}
-                            className="rounded-full bg-muted p-1.5 text-muted-foreground dark:bg-neutral-700"
-                            title={account}
-                          >
-                            {getAccountIcon(account)}
-                          </div>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <Badge
-                        variant="outline"
-                        className={`flex items-center gap-1 px-2 py-1 text-xs ${
-                          user.role === "admin"
-                            ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700"
-                            : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700"
-                        }`}
-                      >
-                        {user.role === "admin" ? (
-                          <Shield className="h-3 w-3" />
-                        ) : (
-                          <User className="h-3 w-3" />
-                        )}
-                        {user.role
-                          ? user.role.charAt(0).toUpperCase() +
-                            user.role.slice(1)
-                          : "User"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      {user.banned ? (
-                        <div className="flex flex-col gap-1">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge
-                                variant="destructive"
-                                className="flex items-center gap-1 px-2 py-1 text-xs cursor-help"
-                              >
-                                <Ban className="h-3 w-3" />
-                                Banned
-                              </Badge>
-                            </TooltipTrigger>
-                            {user.banReason && (
-                              <TooltipContent>
-                                Reason: {user.banReason}
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                          {user.banExpires && (
-                            <span className="text-xs text-muted-foreground">
-                              Expires: {format(user.banExpires, "MMM d, yyyy")}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200 dark:border-green-700 flex items-center gap-1 px-2 py-1 text-xs"
-                        >
-                          <Check className="h-3 w-3" />
-                          Active
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-xs text-muted-foreground">
-                      {user.lastSignIn
-                        ? format(user.lastSignIn, "MMM d, yyyy 'at' h:mm a")
-                        : "Never"}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-xs text-muted-foreground">
-                      {format(user.createdAt, "MMM d, yyyy 'at' h:mm a")}
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <UserActions
-                        user={user}
-                        onActionComplete={handleActionComplete}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+              ? renderTableBodyWithoutData()
+              : renderTableBodyWithData()}
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-between px-4 py-1">
-        <div className="text-sm text-muted-foreground">
+      <div className="flex flex-col-reverse md:flex-row items-center justify-center md:justify-between px-4 py-1 w-full gap-4">
+        <div className="text-sm text-muted-foreground flex-1">
           Showing {users.length} of {total} users
         </div>
         {renderPagination()}

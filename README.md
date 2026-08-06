@@ -1,6 +1,6 @@
-# Zexa Auth Starter
+# Low-Ops Nextjs Starter Template
 
-A modern, production-ready Next.js boilerplate with comprehensive authentication, admin dashboard, and user management features. Built by Zexa for rapid application development.
+A modern, production-ready Next.js boilerplate with comprehensive authentication, admin dashboard, and user management features. Built by Low-Ops for rapid application development.
 
 ## ✨ Features
 
@@ -63,7 +63,7 @@ A modern, production-ready Next.js boilerplate with comprehensive authentication
 
    ```bash
    git clone <repository-url>
-   cd zexa-auth-starter
+   cd Low-Ops-auth-starter
    ```
 
 2. **Install dependencies**
@@ -162,10 +162,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 For support and questions:
 
 - Create an issue in this repository
-- Contact Zexa team
+- Contact Low-Ops team
 
 ---
 
-**Built with ❤️ by Zexa**
+**Built with ❤️ by Low-Ops**
 
-Ready to build something amazing? Get started with Zexa Auth Starter today!
+Ready to build something amazing? Get started with Low-Ops Auth Starter today!
