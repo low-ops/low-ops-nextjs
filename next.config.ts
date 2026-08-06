@@ -1,6 +1,26 @@
+import type { NextConfig } from "next";
 
-const nextConfig  = {
-  /* config options here */
+const nextConfig: NextConfig = {
+  output: "standalone",
+  headers: async () => [
+    {
+      source: "/:path*",
+      headers: [
+        {
+          key: "Cache-Control",
+          value: "no-store, no-cache, must-revalidate",
+        },
+        {
+          key: "Pragma",
+          value: "no-cache",
+        },
+        {
+          key: "Expires",
+          value: "0",
+        },
+      ],
+    },
+  ],
 };
 
 export default nextConfig;

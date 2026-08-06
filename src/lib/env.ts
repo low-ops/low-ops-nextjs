@@ -49,3 +49,32 @@ export function getS3ObjectUrl(key: string) {
 
   return `${normalizedEndpoint}/${bucket}/${normalizedKey}`;
 }
+
+export function getAppPort() {
+  const port = Number(process.env.PORT ?? "8000");
+  return Number.isFinite(port) ? port : 8000;
+}
+
+export function getMetricsPort() {
+  const port = Number(process.env.METRICS_PORT ?? "8001");
+  return Number.isFinite(port) ? port : 8001;
+}
+
+export function getApplicationUrl() {
+  const value = process.env.APPLICATION_URL?.trim();
+  return value ? value.replace(/\/$/, "") : undefined;
+}
+
+export function getOtelConfig() {
+  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
+  const serviceName = process.env.OTEL_SERVICE_NAME?.trim();
+
+  if (!endpoint || !serviceName) {
+    return undefined;
+  }
+
+  return {
+    endpoint: endpoint.replace(/\/$/, ""),
+    serviceName,
+  };
+}

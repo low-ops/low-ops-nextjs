@@ -47,10 +47,10 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    nextCookies(),
     admin({
       defaultRole: "user",
       adminRoles: ["admin"],
     }),
+    nextCookies(),
   ],
 });

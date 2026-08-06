@@ -2,7 +2,7 @@ import { UserSettingsForm } from "@/components/admin/user-settings-form";
 import { auth } from "@/lib/auth";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Settings | Admin Dashboard",
@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   });
 
   if (!session) {
-    return notFound();
+    redirect("/auth/login");
   }
 
   return (

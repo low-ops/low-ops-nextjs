@@ -7,7 +7,7 @@
 
 export const publicPathsConfig = {
   // Exact paths that should be publicly accessible
-  exactPaths: ["/"],
+  exactPaths: ["/", "/ready"],
 
   // Path prefixes - any path starting with these will be public
   prefixes: ["/docs/", "/auth/", "/api/auth/"],

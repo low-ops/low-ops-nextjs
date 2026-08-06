@@ -1,0 +1,151 @@
+openapi: 3.1.0
+info:
+  title: Low-Ops Next.js Template API
+  version: 1.0.0
+  description: Custom API routes for the Low-Ops Next.js starter template.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /ready:
+    get:
+      summary: Readiness probe
+      description: Returns 200 when PostgreSQL and S3 are reachable.
+      tags: [Platform]
+      responses:
+        "200":
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyResponse"
+        "503":
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyResponse"
+
+  /api/admin/users:
+    get:
+      summary: List users
+      description: Returns paginated admin user data. Requires an authenticated admin session.
+      tags: [Admin]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+        - in: query
+          name: sortDirection
+          schema:
+            type: string
+            enum: [asc, desc]
+        - in: query
+          name: role
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: email
+          schema:
+            type: string
+        - in: query
+          name: name
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsersListResponse"
+        "500":
+          description: Server error
+
+  /api/user/avatar:
+    post:
+      summary: Upload avatar
+      description: Uploads the current user's profile photo to S3-compatible storage.
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarUploadResponse"
+        "400":
+          description: Invalid file
+        "401":
+          description: Unauthorized
+        "500":
+          description: Upload failed
+
+components:
+  schemas:
+    ReadyResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+        checks:
+          type: object
+          properties:
+            postgres:
+              type: string
+              enum: [ok, error]
+            s3:
+              type: string
+              enum: [ok, error]
+
+    AvatarUploadResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+
+    UsersListResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer

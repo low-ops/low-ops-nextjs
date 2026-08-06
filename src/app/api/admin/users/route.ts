@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getUsers } from "@/utils/users";
+import { withApiHeaders } from "@/lib/http-headers";
+import { logger } from "@/lib/logger";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +19,6 @@ export async function GET(request: NextRequest) {
     const email = searchParams.get("email") || undefined;
     const name = searchParams.get("name") || undefined;
 
-    // Pass all filters and sort to getUsers
     const { users, total } = await getUsers({
       limit,
       offset,
@@ -29,18 +30,27 @@ export async function GET(request: NextRequest) {
       name,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       users,
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit),
     });
+    return withApiHeaders(request, response);
   } catch (error) {
-    console.error("Error fetching users:", error);
-    return NextResponse.json(
+    logger.error("Error fetching users", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    const response = NextResponse.json(
       { error: "Failed to fetch users" },
       { status: 500 },
     );
+    return withApiHeaders(request, response);
   }
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return withApiHeaders(request, new NextResponse(null, { status: 204 }));
 }
