@@ -1,9 +1,12 @@
-import { checkHealth } from "@/lib/health";
-import { applyNoCacheHeaders } from "@/lib/http-headers";
-import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
+  const { checkHealth } = await import("@/lib/health");
+  const { applyNoCacheHeaders } = await import("@/lib/http-headers");
+  const { logger } = await import("@/lib/logger");
+
   const health = await checkHealth();
 
   if (!health.healthy) {
