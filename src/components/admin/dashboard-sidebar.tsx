@@ -85,7 +85,11 @@ export function DashboardSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Settings">
+            <SidebarMenuButton
+              asChild
+              tooltip="Settings"
+              isActive={pathname === "/admin/settings"}
+            >
               <Link href="/admin/settings">
                 <Settings className="h-4 w-4" />
                 <span>Settings</span>

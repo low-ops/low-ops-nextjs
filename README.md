@@ -54,7 +54,7 @@ A modern, production-ready Next.js boilerplate with comprehensive authentication
 ### Prerequisites
 
 - Node.js 18+
-- PostgreSQL database
+- Docker (for local PostgreSQL and MinIO)
 - Resend account (for email functionality)
 
 ### Installation
@@ -63,7 +63,7 @@ A modern, production-ready Next.js boilerplate with comprehensive authentication
 
    ```bash
    git clone <repository-url>
-   cd Low-Ops-auth-starter
+   cd low-ops-nextjs-template
    ```
 
 2. **Install dependencies**
@@ -74,23 +74,31 @@ A modern, production-ready Next.js boilerplate with comprehensive authentication
 
 3. **Environment Setup**
 
-   Copy the `.env.example` file to `.env.local` and fill in the values.
+   Copy the `.env.example` file to `.env` and fill in the values.
 
    ```bash
-   cp .env.example .env.local
+   cp .env.example .env
    ```
 
-4. **Database Setup**
+   Database and storage use the [Low-Ops application specification](https://github.com/low-ops/low-ops-application-specification/blob/main/application-specification.md) env vars: `POSTGRES_*` and `S3_*`.
+
+4. **Start local services**
 
    ```bash
-   # Generate and run migrations
-   npm db:generate
-   npm db:migrate
+   npm run db:create
    ```
 
-5. **Start Development Server**
+5. **Database Setup**
+
    ```bash
-   npm dev
+   npm run db:push
+   npm run db:seed
+   ```
+
+6. **Start Development Server**
+
+   ```bash
+   npm run dev
    ```
 
 Visit `http://localhost:3000` to see your application!
