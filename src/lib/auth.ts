@@ -6,7 +6,7 @@ import {
   getExistingUserCount,
   isRegistrationUserCreation,
 } from "@/lib/founding-admins";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, isEmailVerificationEnabled } from "@/lib/email";
 import { betterAuth } from "better-auth";
 import { admin } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
@@ -48,20 +48,24 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    requireEmailVerification: isEmailVerificationEnabled(),
     resetPasswordTokenExpiresIn: 60 * 60,
   },
-  emailVerification: {
-    sendVerificationEmail: async ({ user, url }) => {
-      await sendEmail({
-        to: user.email,
-        subject: "Verify your email address",
-        text: `Click the link to verify your email: ${url}`,
-      });
-    },
-    sendOnSignUp: true,
-    autoSignInAfterVerification: true,
-  },
+  ...(isEmailVerificationEnabled()
+    ? {
+        emailVerification: {
+          sendVerificationEmail: async ({ user, url }) => {
+            await sendEmail({
+              to: user.email,
+              subject: "Verify your email address",
+              text: `Click the link to verify your email: ${url}`,
+            });
+          },
+          sendOnSignUp: true,
+          autoSignInAfterVerification: true,
+        },
+      }
+    : {}),
   socialProviders,
   databaseHooks: {
     user: {
@@ -72,10 +76,13 @@ export const auth = betterAuth({
           }
 
           const existingUserCount = await getExistingUserCount();
+          let data = applyFoundingAdminToNewUser(userData, existingUserCount);
 
-          return {
-            data: applyFoundingAdminToNewUser(userData, existingUserCount),
-          };
+          if (!isEmailVerificationEnabled()) {
+            data = { ...data, emailVerified: true };
+          }
+
+          return { data };
         },
       },
     },

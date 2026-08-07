@@ -5,6 +5,7 @@ import { APIError } from "better-auth/api";
 import { ActionResult } from "@/lib/schemas";
 import { registerSchema, RegisterSchema } from "@/lib/schemas";
 import { DEFAULT_LOGIN_REDIRECT } from "@/lib/config";
+import { isEmailVerificationEnabled } from "@/lib/email";
 
 export async function registerUser(
   formData: RegisterSchema,
@@ -32,8 +33,9 @@ export async function registerUser(
 
     return {
       success: {
-        reason:
-          "Registration successful! Check your email to confirm your account.",
+        reason: isEmailVerificationEnabled()
+          ? "Registration successful! Check your email to confirm your account."
+          : "Registration successful! You can sign in now.",
       },
       error: null,
       data: { user: { id: user.id, email: user.email } },

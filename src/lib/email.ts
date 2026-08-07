@@ -4,6 +4,11 @@ export function isEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY?.trim());
 }
 
+/** When Resend is configured, signup requires email verification. Otherwise users are auto-verified. */
+export function isEmailVerificationEnabled() {
+  return isEmailConfigured();
+}
+
 export async function sendEmail(payload: {
   to: string;
   subject: string;
