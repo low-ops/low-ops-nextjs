@@ -75,9 +75,11 @@ export function UserAddDialog({
     >
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="name">Name</Label>
+          <Label htmlFor="add-user-name">Name</Label>
           <Input
-            id="name"
+            id="add-user-name"
+            name="add-user-name"
+            autoComplete="off"
             value={formData.name}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, name: e.target.value }))
@@ -87,10 +89,12 @@ export function UserAddDialog({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="add-user-email">Email</Label>
           <Input
-            id="email"
+            id="add-user-email"
+            name="add-user-email"
             type="email"
+            autoComplete="off"
             value={formData.email}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, email: e.target.value }))
@@ -100,10 +104,12 @@ export function UserAddDialog({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="add-user-password">Password</Label>
           <Input
-            id="password"
+            id="add-user-password"
+            name="add-user-password"
             type="password"
+            autoComplete="new-password"
             value={formData.password}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, password: e.target.value }))
@@ -113,14 +119,14 @@ export function UserAddDialog({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="role">Role</Label>
+          <Label htmlFor="add-user-role">Role</Label>
           <Select
             value={formData.role}
             onValueChange={(value: "user" | "admin") =>
               setFormData((prev) => ({ ...prev, role: value }))
             }
           >
-            <SelectTrigger id="role" className="w-full">
+            <SelectTrigger id="add-user-role" className="w-full">
               <SelectValue placeholder="Select role" />
             </SelectTrigger>
             <SelectContent>
@@ -130,11 +136,11 @@ export function UserAddDialog({
           </Select>
         </div>
         <div className="flex items-center justify-between">
-          <Label htmlFor="autoVerify" className="cursor-pointer">
+          <Label htmlFor="add-user-auto-verify" className="cursor-pointer">
             Auto-verify email
           </Label>
           <Switch
-            id="autoVerify"
+            id="add-user-auto-verify"
             checked={formData.autoVerify}
             onCheckedChange={(checked: boolean) =>
               setFormData((prev) => ({ ...prev, autoVerify: checked }))

@@ -34,6 +34,8 @@ import {
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Pagination,
   PaginationContent,
@@ -86,6 +88,7 @@ export function UsersTable() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isSearchEditable, setIsSearchEditable] = useState(false);
 
   // Filters and sort state, initialized from URL
   const [role, setRole] = useState(searchParams.get("role") || "all");
@@ -110,8 +113,14 @@ export function UsersTable() {
     if (debouncedEmail) params.set("email", debouncedEmail);
     if (page) params.set("page", String(page));
     params.set("limit", String(limit));
-    router.replace(`?${params.toString()}`);
-  }, [role, debouncedEmail, page, router]);
+
+    const nextQuery = params.toString();
+    if (nextQuery === searchParams.toString()) {
+      return;
+    }
+
+    router.replace(nextQuery ? `?${nextQuery}` : "?", { scroll: false });
+  }, [role, debouncedEmail, page, router, searchParams, limit]);
 
   // Build SWR key with all params
   const swrKey = useMemo(() => {
@@ -134,26 +143,34 @@ export function UsersTable() {
 
   // Filter and sort controls
   const filterControls = (
-    <div className="flex flex-wrap gap-2 items-end mb-2 w-full justify-between">
+    <form
+      autoComplete="off"
+      onSubmit={(event) => event.preventDefault()}
+      className="flex flex-wrap gap-2 items-end mb-2 w-full justify-between"
+    >
       <div className="flex gap-2 items-end">
         {/* Search by email */}
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="search"
-            name="users-email-filter"
-            id="users-email-filter"
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            type="text"
+            inputMode="search"
+            name="users-table-search"
+            id="users-table-search"
             placeholder="Search email..."
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
+            readOnly={!isSearchEditable}
             data-1p-ignore
             data-lpignore="true"
-            className="pl-8 pr-2 py-2 border rounded-md text-sm bg-background w-50"
+            data-form-type="other"
+            className="pl-8 w-50"
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
+            onFocus={() => setIsSearchEditable(true)}
+            onChange={(event) => {
+              setEmail(event.target.value);
               setPage(1);
             }}
           />
@@ -202,14 +219,15 @@ export function UsersTable() {
           </SelectContent>
         </Select>
       </div>
-      <button
-        className="ml-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow-xs hover:bg-primary/90 transition-colors flex items-center gap-2"
+      <Button
+        type="button"
+        className="ml-auto"
         onClick={() => setIsAddDialogOpen(true)}
       >
         <UserPlus className="h-4 w-4" />
         Add a user
-      </button>
-    </div>
+      </Button>
+    </form>
   );
 
   if (error) return <div>Failed to load users</div>;

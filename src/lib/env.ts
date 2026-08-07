@@ -29,6 +29,30 @@ export function getDatabaseUrl() {
   return `postgresql://${postgres.POSTGRES_USER}:${password}@${postgres.POSTGRES_HOST}:${postgres.POSTGRES_PORT}/${postgres.POSTGRES_DATABASE}`;
 }
 
+function normalizeS3Endpoint(value: string) {
+  const trimmed = value.trim().replace(/\/$/, "");
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  const isLocal =
+    trimmed.startsWith("localhost") ||
+    trimmed.startsWith("127.0.0.1") ||
+    trimmed.startsWith("minio") ||
+    trimmed.includes(":9000");
+
+  return `${isLocal ? "http" : "https"}://${trimmed}`;
+}
+
+function getS3PublicBaseUrl(endpoint: string) {
+  const configured = process.env.S3_PUBLIC_BASE_URL?.trim();
+  return normalizeS3Endpoint(configured || endpoint).replace(/\/$/, "");
+}
+
 function parseS3BucketName(value: string) {
   const trimmed = value.trim().replace(/^\/+|\/+$/g, "");
   const slashIndex = trimmed.indexOf("/");
@@ -64,11 +88,13 @@ export function resolveS3ObjectKey(relativeKey: string, prefix = "") {
 export function getS3Config() {
   const s3 = s3Schema.parse(process.env);
   const { bucket, prefix } = parseS3BucketName(s3.S3_BUCKET_NAME);
+  const endpoint = normalizeS3Endpoint(s3.S3_ENDPOINT);
 
   return {
-    endpoint: s3.S3_ENDPOINT,
+    endpoint,
     bucket,
     prefix,
+    publicBaseUrl: getS3PublicBaseUrl(endpoint),
     accessKeyId: s3.S3_ACCESS_KEY_ID,
     secretAccessKey: s3.S3_SECRET_ACCESS_KEY,
     region: s3.S3_REGION,
@@ -77,11 +103,10 @@ export function getS3Config() {
 }
 
 export function getS3ObjectUrl(key: string) {
-  const { endpoint, bucket, prefix } = getS3Config();
-  const normalizedEndpoint = endpoint.replace(/\/$/, "");
+  const { bucket, prefix, publicBaseUrl } = getS3Config();
   const objectKey = resolveS3ObjectKey(key, prefix);
 
-  return `${normalizedEndpoint}/${bucket}/${objectKey}`;
+  return new URL(`${publicBaseUrl}/${bucket}/${objectKey}`).toString();
 }
 
 export function getAppPort() {
