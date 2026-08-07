@@ -34,8 +34,8 @@ export async function registerUser(
     return {
       success: {
         reason: isEmailVerificationEnabled()
-          ? "Registration successful! Check your email to confirm your account."
-          : "Registration successful! You can sign in now.",
+          ? "Registration successful! Check your email to confirm your account, then sign in."
+          : "Registration successful! Please sign in to continue.",
       },
       error: null,
       data: { user: { id: user.id, email: user.email } },
