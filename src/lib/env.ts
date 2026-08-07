@@ -29,12 +29,46 @@ export function getDatabaseUrl() {
   return `postgresql://${postgres.POSTGRES_USER}:${password}@${postgres.POSTGRES_HOST}:${postgres.POSTGRES_PORT}/${postgres.POSTGRES_DATABASE}`;
 }
 
+function parseS3BucketName(value: string) {
+  const trimmed = value.trim().replace(/^\/+|\/+$/g, "");
+  const slashIndex = trimmed.indexOf("/");
+
+  if (slashIndex === -1) {
+    return { bucket: trimmed, prefix: "" };
+  }
+
+  return {
+    bucket: trimmed.slice(0, slashIndex),
+    prefix: trimmed.slice(slashIndex + 1).replace(/\/$/, ""),
+  };
+}
+
+export function resolveS3ObjectKey(relativeKey: string, prefix = "") {
+  const normalizedKey = relativeKey.replace(/^\//, "");
+  const normalizedPrefix = prefix.replace(/^\/+|\/+$/g, "");
+
+  if (!normalizedPrefix) {
+    return normalizedKey;
+  }
+
+  if (
+    normalizedKey === normalizedPrefix ||
+    normalizedKey.startsWith(`${normalizedPrefix}/`)
+  ) {
+    return normalizedKey;
+  }
+
+  return `${normalizedPrefix}/${normalizedKey}`;
+}
+
 export function getS3Config() {
   const s3 = s3Schema.parse(process.env);
+  const { bucket, prefix } = parseS3BucketName(s3.S3_BUCKET_NAME);
 
   return {
     endpoint: s3.S3_ENDPOINT,
-    bucket: s3.S3_BUCKET_NAME,
+    bucket,
+    prefix,
     accessKeyId: s3.S3_ACCESS_KEY_ID,
     secretAccessKey: s3.S3_SECRET_ACCESS_KEY,
     region: s3.S3_REGION,
@@ -43,11 +77,11 @@ export function getS3Config() {
 }
 
 export function getS3ObjectUrl(key: string) {
-  const { endpoint, bucket } = getS3Config();
+  const { endpoint, bucket, prefix } = getS3Config();
   const normalizedEndpoint = endpoint.replace(/\/$/, "");
-  const normalizedKey = key.replace(/^\//, "");
+  const objectKey = resolveS3ObjectKey(key, prefix);
 
-  return `${normalizedEndpoint}/${bucket}/${normalizedKey}`;
+  return `${normalizedEndpoint}/${bucket}/${objectKey}`;
 }
 
 export function getAppPort() {

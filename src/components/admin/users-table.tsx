@@ -140,8 +140,16 @@ export function UsersTable() {
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
-            type="text"
+            type="search"
+            name="users-email-filter"
+            id="users-email-filter"
             placeholder="Search email..."
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-1p-ignore
+            data-lpignore="true"
             className="pl-8 pr-2 py-2 border rounded-md text-sm bg-background w-50"
             value={email}
             onChange={(e) => {

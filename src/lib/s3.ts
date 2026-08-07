@@ -1,5 +1,5 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { getS3Config, getS3ObjectUrl } from "@/lib/env";
+import { getS3Config, getS3ObjectUrl, resolveS3ObjectKey } from "@/lib/env";
 
 let s3Client: S3Client | null = null;
 
@@ -26,9 +26,12 @@ export async function uploadAvatar(params: {
   contentType: string;
   body: Buffer;
 }) {
-  const { bucket } = getS3Config();
+  const { bucket, prefix } = getS3Config();
   const extension = params.fileName.split(".").pop()?.toLowerCase() || "jpg";
-  const key = `avatars/${params.userId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const key = resolveS3ObjectKey(
+    `avatars/${params.userId}/${Date.now()}-${crypto.randomUUID()}.${extension}`,
+    prefix,
+  );
 
   await getS3Client().send(
     new PutObjectCommand({
