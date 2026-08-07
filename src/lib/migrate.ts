@@ -1,9 +1,9 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Pool } from "pg";
 import { getDatabaseUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
 import path from "node:path";
+import { Pool } from "pg";
 
 export async function runMigrations() {
   const pool = new Pool({

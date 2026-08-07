@@ -1,55 +1,43 @@
-FROM node:22-slim AS base
+# Stage 1: Install dependencies
+FROM node:22-slim AS dependencies
 
 WORKDIR /app
-ARG PORT=8000
 
-FROM base AS dependencies
+COPY package.json package-lock.json* ./
 
-COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM base AS build
-
-ARG BETTER_AUTH_SECRET=build-time-secret-not-used-at-runtime-32chars
-ENV BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
-ENV BETTER_AUTH_URL=http://localhost:8000
-ENV APPLICATION_URL=http://localhost:8000
-ENV POSTGRES_HOST=build
-ENV POSTGRES_PORT=5432
-ENV POSTGRES_DATABASE=build
-ENV POSTGRES_USER=build
-ENV POSTGRES_PASSWORD=build
-ENV S3_ENDPOINT=http://build
-ENV S3_BUCKET_NAME=build
-ENV S3_ACCESS_KEY_ID=build
-ENV S3_SECRET_ACCESS_KEY=build
-ENV S3_REGION=us-east-1
+# Stage 2: Build the application
+FROM node:22-slim AS build
+WORKDIR /app
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
+
 RUN npm run build
 
-FROM base AS run
-
-ARG PORT=8000
-
-RUN apt-get update -y && apt-get install -y openssl \
-  && rm -rf /var/lib/apt/lists/*
-
-ENV NODE_ENV=production
-ENV PORT=$PORT
-ENV HOSTNAME=0.0.0.0
+# Stage 3: Run the application
+FROM node:22-slim AS run
 
 WORKDIR /app
+ENV NODE_ENV=production
 
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./.next/static
-COPY --from=build /app/public ./public
-COPY --from=build /app/drizzle ./drizzle
-# COPY scripts/start.sh ./start.sh
-# RUN chmod +x ./start.sh
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
+# Set correct permissions for Next.js image optimization features
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Leverage standalone output build
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/drizzle ./drizzle
+
+USER nextjs
+ENV PORT=8000
+ENV HOSTNAME="0.0.0.0"
 EXPOSE $PORT
 
-# CMD ["./start.sh"]
 CMD ["node", "server.js"]

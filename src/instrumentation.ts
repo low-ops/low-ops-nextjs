@@ -19,17 +19,15 @@ export async function register() {
     });
   }
 
-  if (process.env.RUN_MIGRATIONS !== "false") {
-    try {
-      await runMigrations();
-    } catch (error) {
-      logger.error("Database migration failed", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        postgresHost: process.env.POSTGRES_HOST,
-        postgresDatabase: process.env.POSTGRES_DATABASE,
-      });
-    }
+  try {
+    await runMigrations();
+  } catch (error) {
+    logger.error("Database migration failed", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      postgresHost: process.env.POSTGRES_HOST,
+      postgresDatabase: process.env.POSTGRES_DATABASE,
+    });
   }
 
   startMetricsServer();

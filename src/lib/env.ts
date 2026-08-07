@@ -98,30 +98,35 @@ export function getOtelConfig() {
   };
 }
 
-const authSchema = z.object({
-  BETTER_AUTH_SECRET: z.string().min(32),
-});
+const DEFAULT_AUTH_SECRET =
+  "build-time-placeholder-secret-min-32-chars!!";
+const DEFAULT_BASE_URL = "http://localhost:8000";
 
-export function getAuthConfig() {
-  const { BETTER_AUTH_SECRET } = authSchema.parse(process.env);
-  const baseURL =
+export function getAuthConfig(strict = false) {
+  const secret = process.env.BETTER_AUTH_SECRET?.trim();
+  const configuredBaseUrl =
     normalizeAppUrl(process.env.BETTER_AUTH_URL) ??
     normalizeAppUrl(process.env.APPLICATION_URL);
 
-  if (!baseURL) {
-    throw new Error(
-      "Set BETTER_AUTH_URL or APPLICATION_URL to a valid public app URL.",
-    );
+  if (strict) {
+    if (!secret || secret.length < 32) {
+      throw new Error("BETTER_AUTH_SECRET must be at least 32 characters.");
+    }
+
+    if (!configuredBaseUrl) {
+      throw new Error("Set BETTER_AUTH_URL or APPLICATION_URL.");
+    }
   }
 
   return {
-    secret: BETTER_AUTH_SECRET,
-    baseURL,
+    secret:
+      secret && secret.length >= 32 ? secret : DEFAULT_AUTH_SECRET,
+    baseURL: configuredBaseUrl ?? DEFAULT_BASE_URL,
   };
 }
 
 export function validateRuntimeEnv() {
   getPostgresConfig();
   getS3Config();
-  getAuthConfig();
+  getAuthConfig(true);
 }
