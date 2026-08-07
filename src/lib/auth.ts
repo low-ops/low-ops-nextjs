@@ -1,6 +1,11 @@
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { getAuthConfig } from "@/lib/env";
+import {
+  applyFoundingAdminToNewUser,
+  getExistingUserCount,
+  isRegistrationUserCreation,
+} from "@/lib/founding-admins";
 import { sendEmail } from "@/lib/email";
 import { betterAuth } from "better-auth";
 import { admin } from "better-auth/plugins";
@@ -58,6 +63,23 @@ export const auth = betterAuth({
     autoSignInAfterVerification: true,
   },
   socialProviders,
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (userData, ctx) => {
+          if (!isRegistrationUserCreation(ctx)) {
+            return { data: userData };
+          }
+
+          const existingUserCount = await getExistingUserCount();
+
+          return {
+            data: applyFoundingAdminToNewUser(userData, existingUserCount),
+          };
+        },
+      },
+    },
+  },
   plugins: [
     admin({
       defaultRole: "user",

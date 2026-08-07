@@ -1,9 +1,25 @@
-import { getUsers } from "@/utils/users";
-import { withApiHeaders } from "@/lib/http-headers";
-import { logger } from "@/lib/logger";
+import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
+import { isAdminRole } from "@/lib/admin-auth";
+import { auth } from "@/lib/auth";
+import { withApiHeaders } from "@/lib/http-headers";
+import { logger } from "@/lib/logger";
+import { getUsers } from "@/utils/users";
+
 export async function GET(request: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!isAdminRole(session?.user.role)) {
+    const response = NextResponse.json(
+      { error: "You do not have permission to view users." },
+      { status: 403 },
+    );
+    return withApiHeaders(request, response);
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");

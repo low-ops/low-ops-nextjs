@@ -2,6 +2,7 @@
 
 import { Logo } from "@/components/ui/logo";
 import { authClient } from "@/lib/auth-client";
+import { isAdminRole } from "@/lib/admin-auth";
 import { LogOut, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -23,6 +24,7 @@ const sidebarNavItems = [
     href: "/admin/users",
     icon: Users,
     label: "Users",
+    adminOnly: true,
   },
 ];
 
@@ -30,6 +32,10 @@ export function DashboardSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = authClient;
+  const { data: session } = authClient.useSession();
+  const visibleNavItems = sidebarNavItems.filter(
+    (item) => !item.adminOnly || isAdminRole(session?.user.role),
+  );
 
   const handleLogout = async () => {
     try {
@@ -63,7 +69,7 @@ export function DashboardSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {sidebarNavItems.map((item) => (
+              {visibleNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
