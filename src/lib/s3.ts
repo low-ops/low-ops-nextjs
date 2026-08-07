@@ -1,5 +1,5 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { getS3Config, getS3ObjectUrl, resolveS3ObjectKey } from "@/lib/env";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getS3Config, resolveS3ObjectKey } from "@/lib/env";
 
 let s3Client: S3Client | null = null;
 
@@ -44,6 +44,26 @@ export async function uploadAvatar(params: {
 
   return {
     key,
-    url: getS3ObjectUrl(key),
+  };
+}
+
+export async function getS3Object(key: string) {
+  const { bucket } = getS3Config();
+  const response = await getS3Client().send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    }),
+  );
+
+  if (!response.Body) {
+    throw new Error("Object body is empty");
+  }
+
+  const bytes = await response.Body.transformToByteArray();
+
+  return {
+    body: Buffer.from(bytes),
+    contentType: response.ContentType ?? "application/octet-stream",
   };
 }

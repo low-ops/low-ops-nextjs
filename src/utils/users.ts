@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
+import { getAvatarDisplayUrl } from "@/lib/avatar";
 import { headers } from "next/headers";
 
 export interface UserWithDetails {
@@ -137,7 +138,7 @@ export async function getUsers(
       accounts,
       lastSignIn: lastSignInByUser[user.id] || null,
       createdAt: user.createdAt,
-      avatarUrl: user.image || "",
+      avatarUrl: getAvatarDisplayUrl(user.id, user.image) ?? "",
     };
   });
 

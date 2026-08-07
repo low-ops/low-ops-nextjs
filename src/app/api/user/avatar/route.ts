@@ -1,3 +1,4 @@
+import { getAvatarProxyPath } from "@/lib/avatar";
 import { auth } from "@/lib/auth";
 import { withApiHeaders } from "@/lib/http-headers";
 import { logger } from "@/lib/logger";
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const { url } = await uploadAvatar({
+    const { key } = await uploadAvatar({
       userId: session.user.id,
       fileName: file.name,
       contentType: file.type,
@@ -66,9 +67,13 @@ export async function POST(request: NextRequest) {
     logger.info("Avatar uploaded", {
       userId: session.user.id,
       fileName: file.name,
+      key,
     });
 
-    const response = NextResponse.json({ url });
+    const response = NextResponse.json({
+      key,
+      url: getAvatarProxyPath(session.user.id),
+    });
     return withApiHeaders(request, response);
   } catch (error) {
     getAvatarUploadsTotal().inc({ status: "error" });

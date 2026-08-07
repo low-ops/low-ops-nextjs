@@ -15,6 +15,7 @@ import { FormError, FormSuccess } from "@/components/ui/form-messages";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { getAvatarDisplayUrl } from "@/lib/avatar";
 import { authClient } from "@/lib/auth-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
@@ -92,17 +93,21 @@ async function uploadAvatarFile(file: File) {
     body: formData,
   });
 
-  const data = (await response.json()) as { url?: string; error?: string };
+  const data = (await response.json()) as {
+    key?: string;
+    url?: string;
+    error?: string;
+  };
 
   if (!response.ok) {
     throw new Error(data.error || "Failed to upload image");
   }
 
-  if (!data.url) {
+  if (!data.key || !data.url) {
     throw new Error("Failed to upload image");
   }
 
-  return data.url;
+  return { key: data.key, url: data.url };
 }
 
 export function UserSettingsForm({ user }: UserSettingsFormProps) {
@@ -114,7 +119,7 @@ export function UserSettingsForm({ user }: UserSettingsFormProps) {
   }>({});
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
-    user.image ?? null,
+    getAvatarDisplayUrl(user.id, user.image) ?? null,
   );
 
   const {
@@ -170,15 +175,17 @@ export function UserSettingsForm({ user }: UserSettingsFormProps) {
     setFormState({});
 
     try {
-      let imageUrl = user.image ?? null;
+      let imageValue = user.image ?? null;
 
       if (avatarFile) {
-        imageUrl = await uploadAvatarFile(avatarFile);
+        const uploaded = await uploadAvatarFile(avatarFile);
+        imageValue = uploaded.key;
+        setAvatarPreview(`${uploaded.url}?v=${Date.now()}`);
       }
 
       const result = await authClient.updateUser({
         name: data.name,
-        image: imageUrl,
+        image: imageValue,
       });
 
       if (result.error) {
@@ -192,7 +199,11 @@ export function UserSettingsForm({ user }: UserSettingsFormProps) {
       if (avatarPreview?.startsWith("blob:")) {
         URL.revokeObjectURL(avatarPreview);
       }
-      setAvatarPreview(imageUrl);
+      setAvatarPreview(
+        getAvatarDisplayUrl(user.id, imageValue)
+          ? `${getAvatarDisplayUrl(user.id, imageValue)}?v=${Date.now()}`
+          : null,
+      );
 
       setFormState({ success: "Profile updated successfully." });
       toast.success("Profile updated successfully.");
