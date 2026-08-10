@@ -16,8 +16,8 @@ const SignInPage = () => {
     <div className="grid min-h-svh xl:grid-cols-2">
       <div className="bg-muted relative hidden xl:flex xl:items-center xl:justify-center rounded-r-3xl overflow-hidden">
         <Image
-          src="/test-image.png"
-          alt="Secure sign in illustration"
+          src="/auth-illustration.png"
+          alt="Sign in illustration"
           priority
           fill
         />

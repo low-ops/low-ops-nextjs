@@ -21,6 +21,8 @@ export async function register() {
 
   try {
     await runMigrations();
+    const { ensureDefaultAdminUser } = await import("@/lib/bootstrap-admin");
+    await ensureDefaultAdminUser();
   } catch (error) {
     logger.error("Database migration failed", {
       error: error instanceof Error ? error.message : String(error),
