@@ -3,7 +3,7 @@
 A modern, production-ready Next.js boilerplate with comprehensive authentication, admin dashboard, and user management features. Built by Low-Ops for rapid application development.
 
 <p align="left">
-  <img src="./public/logo.svg" height="50" width="60" alt="Low-Ops logo" style="background: white; padding: 20px; border-radius: 10px; margin-right: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
+  <img src="./public/lowops-logo.svg" height="50" width="60" alt="Low-Ops logo" style="background: white; padding: 20px; border-radius: 10px; margin-right: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
   <img src="./public/nextjs-logo.svg" height="50" width="60" alt="NextJS logo" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
 </p>
 
