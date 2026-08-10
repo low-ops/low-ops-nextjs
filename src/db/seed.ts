@@ -1,6 +1,6 @@
 import { getPostgresConfig } from "@/lib/env";
 import { hashPassword } from "better-auth/crypto";
-import { like, or } from "drizzle-orm";
+import { like, or, sql } from "drizzle-orm";
 import { db } from "./index";
 import { account, session, user } from "./schema";
 
@@ -94,6 +94,11 @@ type SeedUser = {
   createdAt: Date;
   updatedAt: Date;
   withSession: boolean;
+};
+
+type SeedDatabaseOptions = {
+  force?: boolean;
+  log?: (message: string) => void;
 };
 
 function normalizeName(value: string) {
@@ -205,16 +210,39 @@ async function clearSeedUsers() {
     );
 }
 
-async function seed() {
+function indexSafe(seedUser: SeedUser) {
+  return seedUser.email
+    .split("@")[0]
+    .split("")
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+}
+
+async function getUserCount() {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(user);
+
+  return row?.count ?? 0;
+}
+
+export async function seedDatabase(options: SeedDatabaseOptions = {}) {
   getPostgresConfig();
 
-  console.log("Clearing existing seed users...");
+  const log = options.log ?? console.log;
+  const userCount = await getUserCount();
+
+  if (!options.force && userCount > 0) {
+    log("Skipping database seed because users already exist.");
+    return;
+  }
+
+  log("Clearing existing seed users...");
   await clearSeedUsers();
 
   const seedUsers = buildSeedUsers();
   const now = new Date();
 
-  console.log(`Creating ${seedUsers.length} seed users...`);
+  log(`Creating ${seedUsers.length} seed users...`);
 
   for (const seedUser of seedUsers) {
     const passwordHash = await hashPassword(seedUser.password);
@@ -262,46 +290,28 @@ async function seed() {
   const verified = seedUsers.filter((entry) => entry.emailVerified);
   const banned = seedUsers.filter((entry) => entry.banned);
 
-  console.log("\nSeed complete.");
-  console.log(`- Total users: ${seedUsers.length}`);
-  console.log(`- Admins: ${admins.length}`);
-  console.log(`- Verified: ${verified.length}`);
-  console.log(`- Unverified: ${seedUsers.length - verified.length}`);
-  console.log(`- Banned: ${banned.length}`);
-  console.log(
+  log("\nSeed complete.");
+  log(`- Total users: ${seedUsers.length}`);
+  log(`- Admins: ${admins.length}`);
+  log(`- Verified: ${verified.length}`);
+  log(`- Unverified: ${seedUsers.length - verified.length}`);
+  log(`- Banned: ${banned.length}`);
+  log(
     `- With sessions: ${seedUsers.filter((entry) => entry.withSession).length}`,
   );
-  console.log(
+  log(
     "\nPassword for each user is the email local part (everything before @).",
   );
-  console.log("\nSample accounts:");
-  console.log(
-    `- Default admin: ${DEFAULT_ADMIN.email} / ${DEFAULT_ADMIN.password}`,
-  );
-  console.log(
+  log("\nSample accounts:");
+  log(`- Default admin: ${DEFAULT_ADMIN.email} / ${DEFAULT_ADMIN.password}`);
+  log(
     `- Admin: ${admins.find((entry) => entry.email !== DEFAULT_ADMIN.email)?.email ?? admins[0]?.email} / ${admins.find((entry) => entry.email !== DEFAULT_ADMIN.email)?.password ?? admins[0]?.password}`,
   );
-  console.log(
+  log(
     `- User: ${seedUsers.find((entry) => entry.role === "user")?.email} / ${seedUsers.find((entry) => entry.role === "user")?.password}`,
   );
-  console.log(
+  log(
     `- Unverified: ${seedUsers.find((entry) => !entry.emailVerified)?.email} / ${seedUsers.find((entry) => !entry.emailVerified)?.password}`,
   );
-  console.log(`- Banned: ${banned[0]?.email} / ${banned[0]?.password}`);
+  log(`- Banned: ${banned[0]?.email} / ${banned[0]?.password}`);
 }
-
-function indexSafe(seedUser: SeedUser) {
-  return seedUser.email
-    .split("@")[0]
-    .split("")
-    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
-}
-
-seed()
-  .then(() => {
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error("Seed failed:", error);
-    process.exit(1);
-  });

@@ -21,7 +21,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:prod": "node scripts/migrate.mjs",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx src/db/seed.ts",
+    "db:seed": "tsx src/db/seed-cli.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

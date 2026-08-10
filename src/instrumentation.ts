@@ -21,10 +21,12 @@ export async function register() {
 
   try {
     await runMigrations();
-    const { ensureDefaultAdminUser } = await import("@/lib/bootstrap-admin");
-    await ensureDefaultAdminUser();
+    const { seedDatabase } = await import("@/db/seed");
+    await seedDatabase({
+      log: (message) => logger.info(message),
+    });
   } catch (error) {
-    logger.error("Database migration failed", {
+    logger.error("Database migration or seed failed", {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       postgresHost: process.env.POSTGRES_HOST,
