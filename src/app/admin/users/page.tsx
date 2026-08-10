@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth";
 import { isAdminRole } from "@/lib/admin-auth";
 
 export const metadata: Metadata = {
-  title: "Users | Admin Dashboard",
+  title: "Users",
   description: "Manage users in the admin dashboard",
 };
 

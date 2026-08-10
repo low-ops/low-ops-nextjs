@@ -1,8 +1,8 @@
 "use client";
 
 import { Logo } from "@/components/ui/logo";
-import { authClient } from "@/lib/auth-client";
 import { isAdminRole } from "@/lib/admin-auth";
+import { authClient } from "@/lib/auth-client";
 import { LogOut, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -18,6 +18,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+
+const activeMenuItemClassName =
+  "text-muted-foreground data-[active=true]:font-medium data-[active=true]:text-foreground";
 
 const sidebarNavItems = [
   {
@@ -40,25 +43,25 @@ export function DashboardSidebar() {
   const handleLogout = async () => {
     try {
       await signOut();
-      router.push("/auth/login");
+      router.push("/auth/sign-in");
     } catch (error) {
       console.error("Logout failed:", error);
     }
   };
 
   return (
-    <Sidebar collapsible="offcanvas" variant="inset">
+    <Sidebar collapsible="offcanvas" variant="sidebar">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/admin">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Logo size={32} />
+                  <Logo showText={false} />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-semibold">Admin Panel</span>
-                  <span className="">v1.0.0</span>
+                  <span className="text-muted-foreground text-xs">v1.0.0</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -75,7 +78,7 @@ export function DashboardSidebar() {
                     asChild
                     isActive={pathname === item.href}
                     tooltip={item.label}
-                    className="text-muted-foreground"
+                    className={activeMenuItemClassName}
                   >
                     <Link href={item.href}>
                       <item.icon />
@@ -95,6 +98,7 @@ export function DashboardSidebar() {
               asChild
               tooltip="Settings"
               isActive={pathname === "/admin/settings"}
+              className={activeMenuItemClassName}
             >
               <Link href="/admin/settings">
                 <Settings className="h-4 w-4" />

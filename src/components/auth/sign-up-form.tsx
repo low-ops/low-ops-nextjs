@@ -1,17 +1,17 @@
 "use client";
 
-import React from "react";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { signUpUser } from "@/app/auth/sign-up/action";
+import PasswordInput from "@/components/auth/password-input";
+import { Button } from "@/components/ui/button";
+import { FormError, FormSuccess } from "@/components/ui/form-messages";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import PasswordInput from "./password-input";
-import { registerSchema } from "@/lib/schemas";
-import { registerUser } from "@/app/auth/register/action";
-import { FormSuccess, FormError } from "../ui/form-messages";
+import { signUpSchema, SignUpSchema } from "@/lib/schemas";
+import { zodResolver } from "@hookform/resolvers/zod";
+import React from "react";
+import { Controller, useForm } from "react-hook-form";
 
-const RegisterForm = () => {
+const SignUpForm = () => {
   const [formState, setFormState] = React.useState<{
     success?: string;
     error?: string;
@@ -23,13 +23,13 @@ const RegisterForm = () => {
     formState: { errors, isSubmitting },
     control,
   } = useForm({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(signUpSchema),
     defaultValues: { name: "", email: "", password: "" },
   });
 
-  const onSubmit = async (data: import("../../lib/schemas").RegisterSchema) => {
+  const onSubmit = async (data: SignUpSchema) => {
     setFormState({});
-    const result = await registerUser(data);
+    const result = await signUpUser(data);
     if (result.success) {
       setFormState({ success: result.success.reason });
     } else if (result.error) {
@@ -90,10 +90,10 @@ const RegisterForm = () => {
         )}
       </div>
       <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Registering..." : "Register"}
+        {isSubmitting ? "Signing up..." : "Sign up"}
       </Button>
     </form>
   );
 };
 
-export default RegisterForm;
+export default SignUpForm;

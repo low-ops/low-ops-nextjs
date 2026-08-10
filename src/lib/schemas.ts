@@ -6,7 +6,7 @@ export type ActionResult<T = unknown> = {
   data?: T;
 };
 
-export const registerSchema = z.object({
+export const signUpSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
   password: z
     .string()
@@ -21,4 +21,4 @@ export const registerSchema = z.object({
   name: z.string().min(2).max(100),
 });
 
-export type RegisterSchema = z.infer<typeof registerSchema>;
+export type SignUpSchema = z.infer<typeof signUpSchema>;

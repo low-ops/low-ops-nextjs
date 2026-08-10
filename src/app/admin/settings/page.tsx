@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Settings | Admin Dashboard",
+  title: "Settings",
   description: "Manage your account settings in the admin dashboard",
 };
 
@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   });
 
   if (!session) {
-    redirect("/auth/login");
+    redirect("/auth/sign-in");
   }
 
   return (

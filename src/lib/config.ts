@@ -1,3 +1,3 @@
-const DEFAULT_LOGIN_REDIRECT = "/admin/users";
+const DEFAULT_SIGN_IN_REDIRECT = "/admin/users";
 
-export { DEFAULT_LOGIN_REDIRECT };
+export { DEFAULT_SIGN_IN_REDIRECT };

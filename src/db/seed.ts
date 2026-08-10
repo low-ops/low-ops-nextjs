@@ -68,7 +68,7 @@ const LAST_NAMES = [
 const BAN_REASONS = [
   "Spamming support tickets",
   "Repeated policy violations",
-  "Suspicious login activity",
+  "Suspicious sign in activity",
   "Abusive behavior in comments",
   "Automated bot activity",
 ];

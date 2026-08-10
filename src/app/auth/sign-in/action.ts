@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { APIError } from "better-auth/api";
 import { ActionResult } from "@/lib/schemas";
 
-export async function loginUser({
+export async function signInUser({
   email,
   password,
 }: {
@@ -15,7 +15,7 @@ export async function loginUser({
     await auth.api.signInEmail({ body: { email, password } });
 
     return {
-      success: { reason: "Login successful" },
+      success: { reason: "Signed in successfully" },
       error: null,
       data: undefined,
     };

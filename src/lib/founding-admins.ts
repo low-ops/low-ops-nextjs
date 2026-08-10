@@ -8,7 +8,7 @@ type AuthHookContext = {
   path?: string;
 } | null | undefined;
 
-export function isRegistrationUserCreation(ctx: AuthHookContext): boolean {
+export function isSignUpUserCreation(ctx: AuthHookContext): boolean {
   const path = ctx?.path;
   if (!path || path.startsWith("/admin/")) {
     return false;

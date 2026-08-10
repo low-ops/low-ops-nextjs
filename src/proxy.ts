@@ -1,5 +1,5 @@
 import { isPublicPath } from "@/lib/public-paths";
-import { DEFAULT_LOGIN_REDIRECT } from "@/lib/config";
+import { DEFAULT_SIGN_IN_REDIRECT } from "@/lib/config";
 import { auth } from "@/lib/auth";
 import { applyNoCacheHeaders } from "@/lib/http-headers";
 import {
@@ -39,7 +39,7 @@ export async function proxy(request: NextRequest) {
     if (session && pathname.startsWith("/auth/")) {
       return finalizeResponse(
         request,
-        NextResponse.redirect(new URL(DEFAULT_LOGIN_REDIRECT, request.url)),
+        NextResponse.redirect(new URL(DEFAULT_SIGN_IN_REDIRECT, request.url)),
         startedAt,
       );
     }
@@ -51,7 +51,7 @@ export async function proxy(request: NextRequest) {
     if (!session) {
       return finalizeResponse(
         request,
-        NextResponse.redirect(new URL("/auth/login", request.url)),
+        NextResponse.redirect(new URL("/auth/sign-in", request.url)),
         startedAt,
       );
     }

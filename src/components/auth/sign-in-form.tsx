@@ -1,16 +1,16 @@
 "use client";
 
+import { signInUser } from "@/app/auth/sign-in/action";
 import { Button } from "@/components/ui/button";
+import { FormError, FormSuccess } from "@/components/ui/form-messages";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, Lock, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { loginUser } from "../../app/auth/login/action";
-import { FormError, FormSuccess } from "../ui/form-messages";
 
 const schema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
@@ -19,7 +19,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const LoginForm = () => {
+const SignInForm = () => {
   const {
     register,
     handleSubmit,
@@ -35,14 +35,12 @@ const LoginForm = () => {
     error?: string;
   }>({});
 
-  const id = useId();
+  const passwordId = useId();
   const router = useRouter();
-
-  const toggleVisibility = () => setIsVisible((prev) => !prev);
 
   const onSubmit = async (data: FormData) => {
     setFormState({});
-    const result = await loginUser(data);
+    const result = await signInUser(data);
     if (result.success) {
       setFormState({ success: result.success.reason });
       router.push("/admin/users");
@@ -52,43 +50,51 @@ const LoginForm = () => {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="flex w-full flex-col gap-5"
-    >
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <FormSuccess message={formState.success || ""} />
       <FormError message={formState.error || ""} />
-      <div className="flex flex-col gap-2">
+
+      <div className="grid gap-2 mb-2">
         <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="you@example.com"
-          autoComplete="email"
-          {...register("email")}
-        />
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 inset-s-0 flex w-9 items-center justify-center text-muted-foreground/80">
+            <Mail size={16} aria-hidden="true" />
+          </div>
+          <Input
+            id="email"
+            type="email"
+            placeholder="m@example.com"
+            autoComplete="email"
+            className="ps-9"
+            {...register("email")}
+          />
+        </div>
         {errors.email && (
           <span className="text-xs text-red-500">{errors.email.message}</span>
         )}
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={id}>Password</Label>
-        <div className="relative">
+
+      <div className="grid gap-2">
+        <div className="flex items-center">
+          <Label htmlFor={passwordId}>Password</Label>
+        </div>
+        <div className="relative mb-4">
+          <div className="pointer-events-none absolute inset-y-0 inset-s-0 flex w-9 items-center justify-center text-muted-foreground/80">
+            <Lock size={16} aria-hidden="true" />
+          </div>
           <Input
-            id={id}
+            id={passwordId}
             type={isVisible ? "text" : "password"}
-            placeholder="Password"
             autoComplete="current-password"
-            className="pe-9"
+            className="ps-9 pe-9"
             {...register("password")}
           />
           <button
-            className="text-muted-foreground/80 hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 absolute inset-y-0 inset-e-0 flex h-full w-9 items-center justify-center rounded-e-md transition-[color,box-shadow] outline-none focus:z-10 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="absolute inset-y-0 inset-e-0 flex h-full w-9 items-center justify-center rounded-e-md text-muted-foreground/80 transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
             type="button"
-            onClick={toggleVisibility}
+            onClick={() => setIsVisible((prev) => !prev)}
             aria-label={isVisible ? "Hide password" : "Show password"}
             aria-pressed={isVisible}
-            aria-controls="password"
           >
             {isVisible ? (
               <EyeOffIcon size={16} aria-hidden="true" />
@@ -103,11 +109,12 @@ const LoginForm = () => {
           </span>
         )}
       </div>
-      <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Logging in..." : "Login"}
+
+      <Button type="submit" className="w-full" disabled={isSubmitting}>
+        {isSubmitting ? "Signing in..." : "Sign in"}
       </Button>
     </form>
   );
 };
 
-export default LoginForm;
+export default SignInForm;

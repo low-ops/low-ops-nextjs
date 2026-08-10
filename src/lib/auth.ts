@@ -4,7 +4,7 @@ import { getAuthConfig } from "@/lib/env";
 import {
   applyFoundingAdminToNewUser,
   getExistingUserCount,
-  isRegistrationUserCreation,
+  isSignUpUserCreation,
 } from "@/lib/founding-admins";
 import { sendEmail, isEmailVerificationEnabled } from "@/lib/email";
 import { betterAuth } from "better-auth";
@@ -72,7 +72,7 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (userData, ctx) => {
-          if (!isRegistrationUserCreation(ctx)) {
+          if (!isSignUpUserCreation(ctx)) {
             return { data: userData };
           }
 

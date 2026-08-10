@@ -1,21 +1,16 @@
-import Image from "next/image";
-import { cn } from "@/lib/utils";
+import { GalleryVerticalEnd } from "lucide-react";
 
 type LogoProps = {
-  size?: number;
-  className?: string;
-  alt?: string;
+  showText?: boolean;
 };
 
-export function Logo({ size = 24, className, alt = "Logo" }: LogoProps) {
+export function Logo({ showText = true }: LogoProps) {
   return (
-    <Image
-      src="/logo.svg"
-      alt={alt}
-      width={size}
-      height={size}
-      className={cn("shrink-0", className)}
-      priority
-    />
+    <a href="#" className="flex items-center gap-2 font-medium">
+      <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+        <GalleryVerticalEnd className="size-4" />
+      </div>
+      {showText && "Acme Inc."}
+    </a>
   );
 }

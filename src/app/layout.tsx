@@ -9,7 +9,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Low-Ops Nextjs Template",
+  title: {
+    default: "Acme Inc.",
+    template: "%s | Acme Inc.",
+  },
   description: "A Next.js boilerplate for building web applications",
   icons: {
     icon: "/logo.svg",

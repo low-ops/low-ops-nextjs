@@ -3,14 +3,14 @@
 import { auth } from "@/lib/auth";
 import { APIError } from "better-auth/api";
 import { ActionResult } from "@/lib/schemas";
-import { registerSchema, RegisterSchema } from "@/lib/schemas";
-import { DEFAULT_LOGIN_REDIRECT } from "@/lib/config";
+import { signUpSchema, SignUpSchema } from "@/lib/schemas";
+import { DEFAULT_SIGN_IN_REDIRECT } from "@/lib/config";
 import { isEmailVerificationEnabled } from "@/lib/email";
 
-export async function registerUser(
-  formData: RegisterSchema,
+export async function signUpUser(
+  formData: SignUpSchema,
 ): Promise<ActionResult> {
-  const parsed = registerSchema.safeParse(formData);
+  const parsed = signUpSchema.safeParse(formData);
 
   if (!parsed.success) {
     return {
@@ -27,15 +27,15 @@ export async function registerUser(
         email,
         password,
         name,
-        callbackURL: DEFAULT_LOGIN_REDIRECT,
+        callbackURL: DEFAULT_SIGN_IN_REDIRECT,
       },
     });
 
     return {
       success: {
         reason: isEmailVerificationEnabled()
-          ? "Registration successful! Check your email to confirm your account, then sign in."
-          : "Registration successful! Please sign in to continue.",
+          ? "Sign up successful! Check your email to confirm your account, then sign in."
+          : "Sign up successful! Please sign in to continue.",
       },
       error: null,
       data: { user: { id: user.id, email: user.email } },
