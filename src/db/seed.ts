@@ -1,6 +1,6 @@
 import { getPostgresConfig } from "@/lib/env";
 import { hashPassword } from "better-auth/crypto";
-import { like, or, sql } from "drizzle-orm";
+import { eq, inArray, like, or } from "drizzle-orm";
 import { db } from "./index";
 import { account, session, user } from "./schema";
 
@@ -217,34 +217,62 @@ function indexSafe(seedUser: SeedUser) {
     .reduce((sum, char) => sum + char.charCodeAt(0), 0);
 }
 
-async function getUserCount() {
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(user);
+async function anySeedUserExists(emails: string[]) {
+  if (emails.length === 0) {
+    return false;
+  }
 
-  return row?.count ?? 0;
+  const [existingUser] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(inArray(user.email, emails))
+    .limit(1);
+
+  return Boolean(existingUser);
+}
+
+async function seedUserExists(email: string) {
+  const [existingUser] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, email))
+    .limit(1);
+
+  return Boolean(existingUser);
 }
 
 export async function seedDatabase(options: SeedDatabaseOptions = {}) {
   getPostgresConfig();
 
   const log = options.log ?? console.log;
-  const userCount = await getUserCount();
+  const seedUsers = buildSeedUsers();
 
-  if (!options.force && userCount > 0) {
-    log("Skipping database seed because users already exist.");
-    return;
+  if (!options.force) {
+    const hasExistingSeedUser = await anySeedUserExists(
+      seedUsers.map((seedUser) => seedUser.email),
+    );
+
+    if (hasExistingSeedUser) {
+      log("Skipping database seed because seed users already exist.");
+      return;
+    }
+  } else {
+    log("Clearing existing seed users...");
+    await clearSeedUsers();
   }
 
-  log("Clearing existing seed users...");
-  await clearSeedUsers();
-
-  const seedUsers = buildSeedUsers();
   const now = new Date();
+  let createdCount = 0;
 
   log(`Creating ${seedUsers.length} seed users...`);
 
   for (const seedUser of seedUsers) {
+    if (!options.force && (await seedUserExists(seedUser.email))) {
+      log(`Skipping ${seedUser.email} - already exists`);
+      continue;
+    }
+
+    createdCount += 1;
     const passwordHash = await hashPassword(seedUser.password);
 
     await db.insert(user).values({
@@ -291,7 +319,8 @@ export async function seedDatabase(options: SeedDatabaseOptions = {}) {
   const banned = seedUsers.filter((entry) => entry.banned);
 
   log("\nSeed complete.");
-  log(`- Total users: ${seedUsers.length}`);
+  log(`- Created users: ${createdCount}`);
+  log(`- Total seed users: ${seedUsers.length}`);
   log(`- Admins: ${admins.length}`);
   log(`- Verified: ${verified.length}`);
   log(`- Unverified: ${seedUsers.length - verified.length}`);
