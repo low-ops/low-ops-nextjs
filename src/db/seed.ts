@@ -1,6 +1,6 @@
 import { getPostgresConfig } from "@/lib/env";
 import { hashPassword } from "better-auth/crypto";
-import { eq, inArray, like, or } from "drizzle-orm";
+import { eq, like, or } from "drizzle-orm";
 import { db } from "./index";
 import { account, session, user } from "./schema";
 
@@ -217,20 +217,6 @@ function indexSafe(seedUser: SeedUser) {
     .reduce((sum, char) => sum + char.charCodeAt(0), 0);
 }
 
-async function anySeedUserExists(emails: string[]) {
-  if (emails.length === 0) {
-    return false;
-  }
-
-  const [existingUser] = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(inArray(user.email, emails))
-    .limit(1);
-
-  return Boolean(existingUser);
-}
-
 async function seedUserExists(email: string) {
   const [existingUser] = await db
     .select({ id: user.id })
@@ -247,27 +233,20 @@ export async function seedDatabase(options: SeedDatabaseOptions = {}) {
   const log = options.log ?? console.log;
   const seedUsers = buildSeedUsers();
 
-  if (!options.force) {
-    const hasExistingSeedUser = await anySeedUserExists(
-      seedUsers.map((seedUser) => seedUser.email),
-    );
-
-    if (hasExistingSeedUser) {
-      log("Skipping database seed because seed users already exist.");
-      return;
-    }
-  } else {
+  if (options.force) {
     log("Clearing existing seed users...");
     await clearSeedUsers();
   }
 
   const now = new Date();
   let createdCount = 0;
+  let skippedCount = 0;
 
   log(`Creating ${seedUsers.length} seed users...`);
 
   for (const seedUser of seedUsers) {
-    if (!options.force && (await seedUserExists(seedUser.email))) {
+    if (await seedUserExists(seedUser.email)) {
+      skippedCount += 1;
       log(`Skipping ${seedUser.email} - already exists`);
       continue;
     }
@@ -320,6 +299,7 @@ export async function seedDatabase(options: SeedDatabaseOptions = {}) {
 
   log("\nSeed complete.");
   log(`- Created users: ${createdCount}`);
+  log(`- Skipped users: ${skippedCount}`);
   log(`- Total seed users: ${seedUsers.length}`);
   log(`- Admins: ${admins.length}`);
   log(`- Verified: ${verified.length}`);
