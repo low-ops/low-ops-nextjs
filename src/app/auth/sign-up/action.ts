@@ -6,6 +6,7 @@ import { ActionResult } from "@/lib/schemas";
 import { signUpSchema, SignUpSchema } from "@/lib/schemas";
 import { DEFAULT_SIGN_IN_REDIRECT } from "@/lib/config";
 import { isEmailVerificationEnabled } from "@/lib/email";
+import { isRegistrationEnabled } from "@/lib/founding-admins";
 
 export async function signUpUser(
   formData: SignUpSchema,
@@ -20,6 +21,13 @@ export async function signUpUser(
   }
 
   const { email, password, name } = parsed.data;
+
+  if (!(await isRegistrationEnabled())) {
+    return {
+      success: null,
+      error: { reason: "Registration is currently disabled." },
+    };
+  }
 
   try {
     const { user } = await auth.api.signUpEmail({

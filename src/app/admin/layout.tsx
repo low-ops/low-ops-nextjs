@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/admin/dashboard-layout";
 import { auth } from "@/lib/auth";
+import { getDefaultAuthPath } from "@/lib/founding-admins";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -13,7 +14,7 @@ export default async function AdminLayout({
   });
 
   if (!session) {
-    redirect("/auth/sign-in");
+    redirect(await getDefaultAuthPath());
   }
 
   return <DashboardLayout>{children}</DashboardLayout>;

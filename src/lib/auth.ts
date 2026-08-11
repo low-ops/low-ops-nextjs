@@ -4,10 +4,12 @@ import { getAuthConfig } from "@/lib/env";
 import {
   applyFoundingAdminToNewUser,
   getExistingUserCount,
+  isRegistrationEnabled,
   isSignUpUserCreation,
 } from "@/lib/founding-admins";
 import { sendEmail, isEmailVerificationEnabled } from "@/lib/email";
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { admin } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -68,6 +70,19 @@ export const auth = betterAuth({
       }
     : {}),
   socialProviders,
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-up/email") {
+        return;
+      }
+
+      if (!(await isRegistrationEnabled())) {
+        throw new APIError("BAD_REQUEST", {
+          message: "Registration is currently disabled.",
+        });
+      }
+    }),
+  },
   databaseHooks: {
     user: {
       create: {
@@ -77,6 +92,13 @@ export const auth = betterAuth({
           }
 
           const existingUserCount = await getExistingUserCount();
+
+          if (existingUserCount > 0) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Registration is currently disabled.",
+            });
+          }
+
           let data = applyFoundingAdminToNewUser(userData, existingUserCount);
 
           if (!isEmailVerificationEnabled()) {

@@ -1,6 +1,7 @@
 import { isPublicPath } from "@/lib/public-paths";
 import { DEFAULT_SIGN_IN_REDIRECT } from "@/lib/config";
 import { auth } from "@/lib/auth";
+import { getDefaultAuthPath } from "@/lib/founding-admins";
 import { applyNoCacheHeaders } from "@/lib/http-headers";
 import {
   getHttpActiveRequests,
@@ -51,7 +52,9 @@ export async function proxy(request: NextRequest) {
     if (!session) {
       return finalizeResponse(
         request,
-        NextResponse.redirect(new URL("/auth/sign-in", request.url)),
+        NextResponse.redirect(
+          new URL(await getDefaultAuthPath(), request.url),
+        ),
         startedAt,
       );
     }

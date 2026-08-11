@@ -1,5 +1,6 @@
 import { UserSettingsForm } from "@/components/admin/user-settings-form";
 import { auth } from "@/lib/auth";
+import { getDefaultAuthPath } from "@/lib/founding-admins";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -15,7 +16,7 @@ export default async function SettingsPage() {
   });
 
   if (!session) {
-    redirect("/auth/sign-in");
+    redirect(await getDefaultAuthPath());
   }
 
   return (

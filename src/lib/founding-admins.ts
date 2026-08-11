@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { user } from "@/db/schema";
 import { sql } from "drizzle-orm";
 
-export const FOUNDING_ADMIN_COUNT = 3;
+export const FOUNDING_ADMIN_COUNT = 1;
 
 type AuthHookContext = {
   path?: string;
@@ -27,6 +27,14 @@ export async function getExistingUserCount(): Promise<number> {
     .from(user);
 
   return row?.count ?? 0;
+}
+
+export async function isRegistrationEnabled(): Promise<boolean> {
+  return (await getExistingUserCount()) === 0;
+}
+
+export async function getDefaultAuthPath(): Promise<string> {
+  return (await isRegistrationEnabled()) ? "/auth/sign-up" : "/auth/sign-in";
 }
 
 export function applyFoundingAdminToNewUser<
