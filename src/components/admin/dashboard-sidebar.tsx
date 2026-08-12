@@ -1,11 +1,12 @@
 "use client";
 
+import { signOutUser } from "@/app/auth/sign-out/action";
 import { Logo } from "@/components/ui/logo";
 import { isAdminRole } from "@/lib/admin-auth";
 import { authClient } from "@/lib/auth-client";
 import { LogOut, Settings, Users } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import {
   Sidebar,
@@ -33,20 +34,13 @@ const sidebarNavItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { signOut } = authClient;
   const { data: session } = authClient.useSession();
   const visibleNavItems = sidebarNavItems.filter(
     (item) => !item.adminOnly || isAdminRole(session?.user.role),
   );
 
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      router.push("/");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+  const handleLogout = () => {
+    void signOutUser();
   };
 
   return (
