@@ -143,6 +143,22 @@ export function getApplicationUrl() {
   return normalizeAppUrl(process.env.APPLICATION_URL);
 }
 
+function getTrustedOrigins() {
+  const origins = new Set<string>();
+  const applicationUrl = getApplicationUrl();
+  const betterAuthUrl = normalizeAppUrl(process.env.BETTER_AUTH_URL);
+
+  if (applicationUrl) {
+    origins.add(applicationUrl);
+  }
+
+  if (betterAuthUrl) {
+    origins.add(betterAuthUrl);
+  }
+
+  return [...origins];
+}
+
 export function getOtelConfig() {
   const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
   const serviceName = process.env.OTEL_SERVICE_NAME?.trim();
@@ -163,9 +179,10 @@ const DEFAULT_BASE_URL = "http://localhost:8000";
 
 export function getAuthConfig(strict = false) {
   const secret = process.env.BETTER_AUTH_SECRET?.trim();
-  const configuredBaseUrl =
-    normalizeAppUrl(process.env.BETTER_AUTH_URL) ??
-    normalizeAppUrl(process.env.APPLICATION_URL);
+  const applicationUrl = getApplicationUrl();
+  const betterAuthUrl = normalizeAppUrl(process.env.BETTER_AUTH_URL);
+  const configuredBaseUrl = applicationUrl ?? betterAuthUrl;
+  const trustedOrigins = getTrustedOrigins();
 
   if (strict) {
     if (!secret || secret.length < 32) {
@@ -173,7 +190,7 @@ export function getAuthConfig(strict = false) {
     }
 
     if (!configuredBaseUrl) {
-      throw new Error("Set BETTER_AUTH_URL or APPLICATION_URL.");
+      throw new Error("Set APPLICATION_URL or BETTER_AUTH_URL.");
     }
   }
 
@@ -181,6 +198,7 @@ export function getAuthConfig(strict = false) {
     secret:
       secret && secret.length >= 32 ? secret : DEFAULT_AUTH_SECRET,
     baseURL: configuredBaseUrl ?? DEFAULT_BASE_URL,
+    trustedOrigins,
   };
 }
 
