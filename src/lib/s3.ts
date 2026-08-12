@@ -3,18 +3,24 @@ import { getS3Config, resolveS3ObjectKey } from "@/lib/env";
 
 let s3Client: S3Client | null = null;
 
+export function createS3Client(config = getS3Config()) {
+  return new S3Client({
+    endpoint: config.endpoint,
+    region: config.region,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+      ...(config.sessionToken ? { sessionToken: config.sessionToken } : {}),
+    },
+    forcePathStyle: config.forcePathStyle,
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+  });
+}
+
 function getS3Client() {
   if (!s3Client) {
-    const config = getS3Config();
-    s3Client = new S3Client({
-      endpoint: config.endpoint,
-      region: config.region,
-      credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-      },
-      forcePathStyle: config.forcePathStyle,
-    });
+    s3Client = createS3Client();
   }
 
   return s3Client;
@@ -26,21 +32,28 @@ export async function uploadAvatar(params: {
   contentType: string;
   body: Buffer;
 }) {
-  const { bucket, prefix } = getS3Config();
+  const config = getS3Config();
   const extension = params.fileName.split(".").pop()?.toLowerCase() || "jpg";
   const key = resolveS3ObjectKey(
     `avatars/${params.userId}/${Date.now()}-${crypto.randomUUID()}.${extension}`,
-    prefix,
+    config.prefix,
   );
 
-  await getS3Client().send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: params.body,
-      ContentType: params.contentType,
-    }),
-  );
+  try {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: config.bucket,
+        Key: key,
+        Body: params.body,
+        ContentType: params.contentType,
+      }),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `S3 upload failed for bucket "${config.bucket}" key "${key}" at "${config.endpoint}": ${message}`,
+    );
+  }
 
   return {
     key,

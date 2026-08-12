@@ -4,6 +4,7 @@ import { withApiHeaders } from "@/lib/http-headers";
 import { logger } from "@/lib/logger";
 import { getAvatarUploadsTotal } from "@/lib/metrics";
 import { uploadAvatar } from "@/lib/s3";
+import { getS3Config } from "@/lib/env";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -54,6 +55,8 @@ export async function POST(request: NextRequest) {
     return withApiHeaders(request, response);
   }
 
+  const s3Config = getS3Config();
+
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
     const { key } = await uploadAvatar({
@@ -80,6 +83,8 @@ export async function POST(request: NextRequest) {
     logger.error("Avatar upload failed", {
       userId: session.user.id,
       error: error instanceof Error ? error.message : String(error),
+      bucket: s3Config.bucket,
+      endpoint: s3Config.endpoint,
     });
 
     const response = NextResponse.json(

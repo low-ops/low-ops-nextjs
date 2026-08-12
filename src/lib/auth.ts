@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { getAuthConfig, resolveTrustedOrigins } from "@/lib/env";
+import { getAuthBaseUrlConfig, getAuthConfig, resolveTrustedOrigins } from "@/lib/env";
 import {
   applyFoundingAdminToNewUser,
   getExistingUserCount,
@@ -35,7 +35,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
 export const auth = betterAuth({
   secret: authConfig.secret,
-  ...(authConfig.baseURL ? { baseURL: authConfig.baseURL } : {}),
+  baseURL: getAuthBaseUrlConfig(),
   trustedOrigins: async (request) => resolveTrustedOrigins(request),
   advanced: {
     trustedProxyHeaders: true,

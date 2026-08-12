@@ -1,7 +1,8 @@
-import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
+import { HeadBucketCommand } from "@aws-sdk/client-s3";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { getS3Config } from "@/lib/env";
+import { createS3Client } from "@/lib/s3";
 
 export type HealthCheckResult = {
   healthy: boolean;
@@ -26,15 +27,7 @@ export async function checkHealth(): Promise<HealthCheckResult> {
 
   try {
     const s3Config = getS3Config();
-    const client = new S3Client({
-      endpoint: s3Config.endpoint,
-      region: s3Config.region,
-      credentials: {
-        accessKeyId: s3Config.accessKeyId,
-        secretAccessKey: s3Config.secretAccessKey,
-      },
-      forcePathStyle: s3Config.forcePathStyle,
-    });
+    const client = createS3Client(s3Config);
 
     await client.send(
       new HeadBucketCommand({

@@ -89,6 +89,9 @@ export function getS3Config() {
   const s3 = s3Schema.parse(process.env);
   const { bucket, prefix } = parseS3BucketName(s3.S3_BUCKET_NAME);
   const endpoint = normalizeS3Endpoint(s3.S3_ENDPOINT);
+  const sessionToken =
+    process.env.S3_SESSION_TOKEN?.trim() ||
+    process.env.AWS_SESSION_TOKEN?.trim();
 
   return {
     endpoint,
@@ -99,6 +102,7 @@ export function getS3Config() {
     secretAccessKey: s3.S3_SECRET_ACCESS_KEY,
     region: s3.S3_REGION,
     forcePathStyle: true as const,
+    ...(sessionToken ? { sessionToken } : {}),
   };
 }
 
@@ -243,6 +247,28 @@ export function getAuthConfig(strict = false) {
       secret && secret.length >= 32 ? secret : DEFAULT_AUTH_SECRET,
     baseURL: configuredBaseUrl,
     trustedOrigins: getTrustedOrigins(),
+  };
+}
+
+export function getAuthBaseUrlConfig():
+  | string
+  | {
+      allowedHosts: string[];
+      fallback?: string;
+    } {
+  const applicationUrl = getApplicationUrl();
+  if (applicationUrl) {
+    return applicationUrl;
+  }
+
+  const betterAuthUrl = normalizeAppUrl(process.env.BETTER_AUTH_URL);
+  if (betterAuthUrl) {
+    return betterAuthUrl;
+  }
+
+  return {
+    allowedHosts: ["localhost:*", "*.ci.cinaq.com"],
+    fallback: DEFAULT_BASE_URL,
   };
 }
 
