@@ -167,8 +167,12 @@ export function getAppPort() {
 }
 
 export function getMetricsPort() {
+  if (!isMetricsServerEnabled()) {
+    return null;
+  }
+
   const port = Number(process.env.METRICS_PORT ?? "8001");
-  return Number.isFinite(port) ? port : 8001;
+  return Number.isFinite(port) && port > 0 ? port : 8001;
 }
 
 export function getMetricsHost() {
@@ -177,7 +181,7 @@ export function getMetricsHost() {
     return configured;
   }
 
-  return process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1";
+  return isProductionRuntime() ? "0.0.0.0" : "127.0.0.1";
 }
 
 export function getMetricsToken() {
@@ -185,7 +189,10 @@ export function getMetricsToken() {
 }
 
 export function isMetricsAuthRequired() {
-  return process.env.NODE_ENV === "production" || Boolean(getMetricsToken());
+  return (
+    (isProductionRuntime() || Boolean(getMetricsToken())) &&
+    isMetricsServerEnabled()
+  );
 }
 
 function normalizeAppUrl(value: string | undefined) {
@@ -209,7 +216,19 @@ function normalizeAppUrl(value: string | undefined) {
 }
 
 export function getApplicationUrl() {
-  return normalizeAppUrl(process.env.APPLICATION_URL);
+  for (const key of [
+    "APPLICATION_URL",
+    "BETTER_AUTH_URL",
+    "APP_URL",
+    "PUBLIC_URL",
+  ]) {
+    const normalized = normalizeAppUrl(process.env[key]);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return undefined;
 }
 
 export function getTrustedOrigins() {
@@ -258,15 +277,49 @@ const DEFAULT_AUTH_SECRET =
   "build-time-placeholder-secret-min-32-chars!!";
 const DEFAULT_BASE_URL = "http://localhost:8000";
 
+export function isDevelopmentRuntime() {
+  return process.env.NODE_ENV === "development";
+}
+
+export function isProductionRuntime() {
+  return !isDevelopmentRuntime();
+}
+
+function resolveAuthSecret() {
+  for (const key of ["BETTER_AUTH_SECRET", "AUTH_SECRET"]) {
+    const value = process.env[key]?.trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+export function isMetricsServerEnabled() {
+  const raw = process.env.METRICS_PORT?.trim()?.toLowerCase();
+  if (raw === "0" || raw === "false" || raw === "off") {
+    return false;
+  }
+
+  if (process.env.METRICS_ENABLED?.trim()?.toLowerCase() === "false") {
+    return false;
+  }
+
+  return true;
+}
+
 export function getAuthConfig(strict = false) {
-  const secret = process.env.BETTER_AUTH_SECRET?.trim();
+  const secret = resolveAuthSecret();
   const applicationUrl = getApplicationUrl();
   const betterAuthUrl = normalizeAppUrl(process.env.BETTER_AUTH_URL);
   const configuredBaseUrl = applicationUrl ?? betterAuthUrl;
 
   if (strict) {
     if (!secret || secret.length < 32) {
-      throw new Error("BETTER_AUTH_SECRET must be at least 32 characters.");
+      throw new Error(
+        "BETTER_AUTH_SECRET (or AUTH_SECRET) must be at least 32 characters.",
+      );
     }
 
     if (!configuredBaseUrl) {
@@ -309,7 +362,13 @@ export function validateRuntimeEnv() {
   getS3Config();
   getAuthConfig(true);
 
-  if (process.env.NODE_ENV === "production" && !getMetricsToken()) {
-    throw new Error("METRICS_TOKEN is required in production.");
+  if (
+    isProductionRuntime() &&
+    isMetricsServerEnabled() &&
+    !getMetricsToken()
+  ) {
+    throw new Error(
+      "METRICS_TOKEN is required when the metrics server is enabled.",
+    );
   }
 }

@@ -4,6 +4,7 @@ import {
   getMetricsPort,
   getMetricsToken,
   isMetricsAuthRequired,
+  isMetricsServerEnabled,
 } from "@/lib/env";
 import { getMetricsRegistry, initMetrics } from "@/lib/metrics";
 import { logger } from "@/lib/logger";
@@ -33,6 +34,12 @@ function isAuthorizedMetricsRequest(request: http.IncomingMessage) {
 export function startMetricsServer() {
   if (globalState.__metricsServer) {
     return globalState.__metricsServer;
+  }
+
+  const port = getMetricsPort();
+  if (!isMetricsServerEnabled() || port === null) {
+    logger.info("Metrics server disabled");
+    return null;
   }
 
   initMetrics();
@@ -66,7 +73,6 @@ export function startMetricsServer() {
     }
   });
 
-  const port = getMetricsPort();
   const host = getMetricsHost();
 
   server.listen(port, host, () => {

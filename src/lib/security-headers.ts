@@ -16,7 +16,7 @@ const BASE_SECURITY_HEADERS = {
 export function getSecurityHeaders(): Record<string, string> {
   const headers: Record<string, string> = { ...BASE_SECURITY_HEADERS };
 
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV !== "development") {
     headers["Strict-Transport-Security"] =
       "max-age=31536000; includeSubDomains";
   }

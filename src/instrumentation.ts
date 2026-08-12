@@ -1,9 +1,5 @@
 import "@/lib/aws-compat";
 
-function shouldFailStartup() {
-  return process.env.NODE_ENV === "production";
-}
-
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") {
     return;
@@ -13,7 +9,7 @@ export async function register() {
   const { startMetricsServer } = await import("@/lib/metrics-server");
   const { initOtel } = await import("@/lib/otel");
   const { registerShutdownHandlers } = await import("@/lib/shutdown");
-  const { validateRuntimeEnv } = await import("@/lib/env");
+  const { isProductionRuntime, validateRuntimeEnv } = await import("@/lib/env");
   const { logger } = await import("@/lib/logger");
 
   try {
@@ -24,7 +20,7 @@ export async function register() {
       error: error instanceof Error ? error.message : String(error),
     });
 
-    if (shouldFailStartup()) {
+    if (isProductionRuntime()) {
       process.exit(1);
     }
   }
@@ -39,7 +35,7 @@ export async function register() {
       postgresDatabase: process.env.POSTGRES_DATABASE,
     });
 
-    if (shouldFailStartup()) {
+    if (isProductionRuntime()) {
       process.exit(1);
     }
   }
