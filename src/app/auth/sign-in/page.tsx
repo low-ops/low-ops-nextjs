@@ -5,6 +5,8 @@ import {
 } from "@/lib/founding-admins";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 const SignInPage = async () => {
   const registrationEnabled = await isRegistrationEnabled();
 
