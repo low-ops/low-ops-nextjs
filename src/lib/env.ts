@@ -189,10 +189,7 @@ export function getMetricsToken() {
 }
 
 export function isMetricsAuthRequired() {
-  return (
-    (isProductionRuntime() || Boolean(getMetricsToken())) &&
-    isMetricsServerEnabled()
-  );
+  return Boolean(getMetricsToken()) && isMetricsServerEnabled();
 }
 
 function normalizeAppUrl(value: string | undefined) {
@@ -421,14 +418,4 @@ export function validateRuntimeEnv() {
   getPostgresConfig();
   getS3Config();
   getAuthConfig(true);
-
-  if (
-    isProductionRuntime() &&
-    isMetricsServerEnabled() &&
-    !getMetricsToken()
-  ) {
-    throw new Error(
-      "METRICS_TOKEN is required when the metrics server is enabled.",
-    );
-  }
 }
