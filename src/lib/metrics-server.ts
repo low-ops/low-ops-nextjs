@@ -1,11 +1,34 @@
 import http from "node:http";
-import { getMetricsPort } from "@/lib/env";
+import {
+  getMetricsHost,
+  getMetricsPort,
+  getMetricsToken,
+  isMetricsAuthRequired,
+} from "@/lib/env";
 import { getMetricsRegistry, initMetrics } from "@/lib/metrics";
 import { logger } from "@/lib/logger";
 
 const globalState = globalThis as typeof globalThis & {
   __metricsServer?: http.Server;
 };
+
+function isAuthorizedMetricsRequest(request: http.IncomingMessage) {
+  if (!isMetricsAuthRequired()) {
+    return true;
+  }
+
+  const token = getMetricsToken();
+  if (!token) {
+    return false;
+  }
+
+  const authorization = request.headers.authorization;
+  if (!authorization?.startsWith("Bearer ")) {
+    return false;
+  }
+
+  return authorization.slice("Bearer ".length) === token;
+}
 
 export function startMetricsServer() {
   if (globalState.__metricsServer) {
@@ -18,6 +41,12 @@ export function startMetricsServer() {
     if (request.url !== "/metrics") {
       response.statusCode = 404;
       response.end("Not Found");
+      return;
+    }
+
+    if (!isAuthorizedMetricsRequest(request)) {
+      response.statusCode = 401;
+      response.end("Unauthorized");
       return;
     }
 
@@ -38,9 +67,15 @@ export function startMetricsServer() {
   });
 
   const port = getMetricsPort();
+  const host = getMetricsHost();
 
-  server.listen(port, "0.0.0.0", () => {
-    logger.info("Metrics server started", { port, path: "/metrics" });
+  server.listen(port, host, () => {
+    logger.info("Metrics server started", {
+      host,
+      port,
+      path: "/metrics",
+      authRequired: isMetricsAuthRequired(),
+    });
   });
 
   globalState.__metricsServer = server;

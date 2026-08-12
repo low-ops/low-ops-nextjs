@@ -8,6 +8,11 @@ import {
   initMetrics,
   recordHttpRequest,
 } from "@/lib/metrics";
+import {
+  checkAuthRateLimit,
+  getClientIp,
+  isAuthRateLimitPath,
+} from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 function finalizeResponse(
@@ -33,6 +38,24 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   try {
+    if (isAuthRateLimitPath(pathname, request.method)) {
+      const rateLimit = checkAuthRateLimit(getClientIp(request));
+
+      if (!rateLimit.success) {
+        const response = NextResponse.json(
+          { error: "Too many requests. Please try again later." },
+          {
+            status: 429,
+            headers: rateLimit.retryAfter
+              ? { "Retry-After": String(rateLimit.retryAfter) }
+              : undefined,
+          },
+        );
+
+        return finalizeResponse(request, response, startedAt);
+      }
+    }
+
     const session = await auth.api.getSession({
       headers: request.headers,
     });

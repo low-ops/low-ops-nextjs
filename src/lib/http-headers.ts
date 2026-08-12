@@ -1,17 +1,21 @@
 import { getApplicationUrl } from "@/lib/env";
+import {
+  applyHeaderRecord,
+  getSecurityHeaders,
+  NO_CACHE_HEADERS,
+} from "@/lib/security-headers";
 import { NextRequest, NextResponse } from "next/server";
 
-export const NO_CACHE_HEADERS = {
-  "Cache-Control": "no-store, no-cache, must-revalidate",
-  Pragma: "no-cache",
-  Expires: "0",
-} as const;
+export { NO_CACHE_HEADERS, getSecurityHeaders } from "@/lib/security-headers";
+
+export function applySecurityHeaders(response: NextResponse) {
+  applyHeaderRecord(response, getSecurityHeaders());
+  return response;
+}
 
 export function applyNoCacheHeaders(response: NextResponse) {
-  for (const [key, value] of Object.entries(NO_CACHE_HEADERS)) {
-    response.headers.set(key, value);
-  }
-
+  applyHeaderRecord(response, NO_CACHE_HEADERS);
+  applySecurityHeaders(response);
   return response;
 }
 

@@ -171,6 +171,23 @@ export function getMetricsPort() {
   return Number.isFinite(port) ? port : 8001;
 }
 
+export function getMetricsHost() {
+  const configured = process.env.METRICS_HOST?.trim();
+  if (configured) {
+    return configured;
+  }
+
+  return process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1";
+}
+
+export function getMetricsToken() {
+  return process.env.METRICS_TOKEN?.trim() || undefined;
+}
+
+export function isMetricsAuthRequired() {
+  return process.env.NODE_ENV === "production" || Boolean(getMetricsToken());
+}
+
 function normalizeAppUrl(value: string | undefined) {
   const trimmed = value?.trim();
   if (!trimmed) {
@@ -195,7 +212,7 @@ export function getApplicationUrl() {
   return normalizeAppUrl(process.env.APPLICATION_URL);
 }
 
-function getTrustedOrigins() {
+export function getTrustedOrigins() {
   const origins = new Set<string>();
   const applicationUrl = getApplicationUrl();
   const betterAuthUrl = normalizeAppUrl(process.env.BETTER_AUTH_URL);
@@ -208,44 +225,11 @@ function getTrustedOrigins() {
     origins.add(betterAuthUrl);
   }
 
-  return [...origins];
-}
-
-function resolveRequestOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  if (origin) {
-    return normalizeAppUrl(origin);
-  }
-
-  const forwardedHost = request.headers.get("x-forwarded-host");
-  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
-
-  if (forwardedHost) {
-    const host = forwardedHost.split(",")[0]?.trim();
-    if (host) {
-      return normalizeAppUrl(`${forwardedProto}://${host}`);
-    }
-  }
-
-  const host = request.headers.get("host");
-  if (host) {
-    const proto = host.startsWith("localhost") || host.startsWith("127.0.0.1")
-      ? "http"
-      : "https";
-
-    return normalizeAppUrl(`${proto}://${host}`);
-  }
-
-  return undefined;
-}
-
-export function resolveTrustedOrigins(request?: Request | null) {
-  const origins = new Set<string>(getTrustedOrigins());
-
-  if (request) {
-    const requestOrigin = resolveRequestOrigin(request);
-    if (requestOrigin) {
-      origins.add(requestOrigin);
+  const extraOrigins = process.env.TRUSTED_ORIGINS?.split(",") ?? [];
+  for (const origin of extraOrigins) {
+    const normalized = normalizeAppUrl(origin.trim());
+    if (normalized) {
+      origins.add(normalized);
     }
   }
 
@@ -324,4 +308,8 @@ export function validateRuntimeEnv() {
   getPostgresConfig();
   getS3Config();
   getAuthConfig(true);
+
+  if (process.env.NODE_ENV === "production" && !getMetricsToken()) {
+    throw new Error("METRICS_TOKEN is required in production.");
+  }
 }

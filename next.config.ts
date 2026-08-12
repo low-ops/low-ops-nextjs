@@ -1,23 +1,24 @@
 import type { NextConfig } from "next";
 
+import {
+  getSecurityHeaders,
+  NO_CACHE_HEADERS,
+} from "./src/lib/security-headers";
+
 const nextConfig: NextConfig = {
   output: "standalone",
   headers: async () => [
     {
       source: "/:path*",
       headers: [
-        {
-          key: "Cache-Control",
-          value: "no-store, no-cache, must-revalidate",
-        },
-        {
-          key: "Pragma",
-          value: "no-cache",
-        },
-        {
-          key: "Expires",
-          value: "0",
-        },
+        ...Object.entries(NO_CACHE_HEADERS).map(([key, value]) => ({
+          key,
+          value,
+        })),
+        ...Object.entries(getSecurityHeaders()).map(([key, value]) => ({
+          key,
+          value,
+        })),
       ],
     },
   ],

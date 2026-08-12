@@ -33,14 +33,8 @@ npm run db:migrate
 npm run dev
 ```
 
-#### Seed the database with mock data (for development purposes)
-
-```bash
-npm run db:seed
-```
-
 - App: `PORT` (default `8000`), health `GET /ready`
-- Metrics: `METRICS_PORT` (default `8001`) Prometheus `/metrics`
+- Metrics: `METRICS_PORT` (default `8001`) Prometheus `/metrics` (requires `Authorization: Bearer <METRICS_TOKEN>` when token is set)
 - HTML and API responses use no-cache headers
 - Compose includes PostgreSQL and MinIO
 
@@ -53,8 +47,18 @@ Required in addition to the spec defaults:
 | `BETTER_AUTH_SECRET` | output of `openssl rand -base64 32` | Auth signing secret (min 32 chars)     |
 | `BETTER_AUTH_URL`    | `https://myapp.example.com`         | Public app URL for auth callbacks      |
 | `APPLICATION_URL`    | `https://myapp.example.com`         | Used as fallback for `BETTER_AUTH_URL` |
+| `METRICS_TOKEN`      | output of `openssl rand -base64 32` | Bearer token for `/metrics` (required in production) |
 
 `PORT` defaults to `8000` in the container if the platform does not set it.
+
+Optional:
+
+| Variable | Example | Description |
+| -------- | ------- | ----------- |
+| `TRUSTED_ORIGINS` | `https://staging.example.com` | Comma-separated extra allowed auth origins |
+| `AUTH_RATE_LIMIT_MAX` | `20` | Max auth API writes per IP per window |
+| `AUTH_RATE_LIMIT_WINDOW_MS` | `60000` | Auth rate limit window in milliseconds |
+| `METRICS_HOST` | `0.0.0.0` | Metrics server bind address (default `127.0.0.1` in dev) |
 
 ## ✨ Features
 
@@ -101,31 +105,6 @@ Required in addition to the spec defaults:
 - **Email:** Resend
 - **TypeScript:** Full type safety
 
-### Prerequisites
-
-- Node.js 18+
-- Docker (for local PostgreSQL and MinIO)
-- Resend account (for email functionality)
-
-## 📁 Project Structure
-
-```
-src/
-├── app/                    # Next.js App Router
-│   ├── admin/             # Admin dashboard pages
-│   ├── api/               # API routes
-│   ├── auth/              # Authentication pages
-│   └── dashboard/         # User dashboard
-├── components/            # React components
-│   ├── admin/            # Admin-specific components
-│   ├── auth/             # Authentication forms
-│   ├── landing/          # Landing page components
-│   └── ui/               # Reusable UI components
-├── db/                   # Database configuration
-├── lib/                  # Utility libraries
-└── utils/                # Helper functions
-```
-
 ## 🔧 Available Scripts
 
 - `npm dev` - Start development server with Turbopack
@@ -137,4 +116,3 @@ src/
 - `npm db:migrate` - Run database migrations
 - `npm db:push` - Push database migrations to the database
 - `npm db:studio` - Open the Drizzle ORM Studio
-- `npm db:seed` - Seed the database with mock data

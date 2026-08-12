@@ -1,5 +1,9 @@
 import "@/lib/aws-compat";
 
+function shouldFailStartup() {
+  return process.env.NODE_ENV === "production";
+}
+
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") {
     return;
@@ -19,6 +23,10 @@ export async function register() {
     logger.error("Missing or invalid runtime environment variables", {
       error: error instanceof Error ? error.message : String(error),
     });
+
+    if (shouldFailStartup()) {
+      process.exit(1);
+    }
   }
 
   try {
@@ -30,6 +38,10 @@ export async function register() {
       postgresHost: process.env.POSTGRES_HOST,
       postgresDatabase: process.env.POSTGRES_DATABASE,
     });
+
+    if (shouldFailStartup()) {
+      process.exit(1);
+    }
   }
 
   startMetricsServer();
