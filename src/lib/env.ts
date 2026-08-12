@@ -10,6 +10,8 @@ const postgresSchema = z.object({
   POSTGRES_PASSWORD: z.string(),
 });
 
+const AWS_REGION_PATTERN = /^[a-z]{2}(?:-[a-z]+)+-\d+$/;
+
 const s3Schema = z.object({
   S3_ENDPOINT: z.string().min(1),
   S3_BUCKET_NAME: z.string().min(1),
@@ -17,6 +19,47 @@ const s3Schema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_REGION: z.string().default("us-east-1"),
 });
+
+function isLikelyAwsRegion(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? AWS_REGION_PATTERN.test(trimmed) : false;
+}
+
+function extractRegionFromS3Endpoint(endpoint: string) {
+  try {
+    const host = new URL(normalizeS3Endpoint(endpoint)).hostname.toLowerCase();
+    const match =
+      host.match(/\.s3[.-]([a-z0-9-]+)\.amazonaws\.com$/) ??
+      host.match(/^s3[.-]([a-z0-9-]+)\.amazonaws\.com$/);
+
+    if (match && match[1] !== "dualstack" && isLikelyAwsRegion(match[1])) {
+      return match[1];
+    }
+
+    if (host === "s3.amazonaws.com" || host.endsWith(".s3.amazonaws.com")) {
+      return "us-east-1";
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+export function resolveS3Region(endpoint: string, defaultRegion: string) {
+  for (const candidate of [
+    process.env.S3_REGION,
+    process.env.AWS_REGION,
+    process.env.AWS_DEFAULT_REGION,
+    process.env.S3_SERVICE_NAME,
+  ]) {
+    if (isLikelyAwsRegion(candidate)) {
+      return candidate!.trim();
+    }
+  }
+
+  return extractRegionFromS3Endpoint(endpoint) ?? defaultRegion;
+}
 
 export function getPostgresConfig() {
   return postgresSchema.parse(process.env);
@@ -100,7 +143,7 @@ export function getS3Config() {
     publicBaseUrl: getS3PublicBaseUrl(endpoint),
     accessKeyId: s3.S3_ACCESS_KEY_ID,
     secretAccessKey: s3.S3_SECRET_ACCESS_KEY,
-    region: s3.S3_REGION,
+    region: resolveS3Region(endpoint, s3.S3_REGION),
     forcePathStyle: true as const,
     ...(sessionToken ? { sessionToken } : {}),
   };

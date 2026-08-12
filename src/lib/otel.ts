@@ -16,14 +16,19 @@ export async function initOtel() {
     return;
   }
 
-  const [{ NodeSDK }, { OTLPTraceExporter }, { getNodeAutoInstrumentations }, { resourceFromAttributes }, { ATTR_SERVICE_NAME }] =
-    await Promise.all([
-      import("@opentelemetry/sdk-node"),
-      import("@opentelemetry/exporter-trace-otlp-http"),
-      import("@opentelemetry/auto-instrumentations-node"),
-      import("@opentelemetry/resources"),
-      import("@opentelemetry/semantic-conventions"),
-    ]);
+  const [
+    { NodeSDK },
+    { OTLPTraceExporter },
+    { getNodeAutoInstrumentations },
+    { resourceFromAttributes },
+    { ATTR_SERVICE_NAME },
+  ] = await Promise.all([
+    import("@opentelemetry/sdk-node"),
+    import("@opentelemetry/exporter-trace-otlp-http"),
+    import("@opentelemetry/auto-instrumentations-node"),
+    import("@opentelemetry/resources"),
+    import("@opentelemetry/semantic-conventions"),
+  ]);
 
   const sdk = new NodeSDK({
     resource: resourceFromAttributes({

@@ -1,3 +1,5 @@
+import "@/lib/aws-compat";
+
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getS3Config, resolveS3ObjectKey } from "@/lib/env";
 
@@ -46,6 +48,7 @@ export async function uploadAvatar(params: {
         Key: key,
         Body: params.body,
         ContentType: params.contentType,
+        ContentLength: params.body.length,
       }),
     );
   } catch (error) {

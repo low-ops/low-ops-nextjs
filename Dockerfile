@@ -21,6 +21,8 @@ FROM node:22-slim AS run
 
 WORKDIR /app
 ENV NODE_ENV=production
+ENV AWS_REQUEST_CHECKSUM_CALCULATION=WHEN_REQUIRED
+ENV AWS_RESPONSE_CHECKSUM_VALIDATION=WHEN_REQUIRED
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
