@@ -1,5 +1,6 @@
 import "dotenv/config";
 
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 const postgresSchema = z.object({
@@ -171,8 +172,7 @@ export function getMetricsPort() {
     return null;
   }
 
-  const port = Number(process.env.METRICS_PORT ?? "8001");
-  return Number.isFinite(port) && port > 0 ? port : 8001;
+  return parseMetricsPortValue(process.env.METRICS_PORT);
 }
 
 export function getMetricsHost() {
@@ -277,12 +277,52 @@ const DEFAULT_AUTH_SECRET =
   "build-time-placeholder-secret-min-32-chars!!";
 const DEFAULT_BASE_URL = "http://localhost:8000";
 
+export function isDeployedRuntime() {
+  return (
+    process.cwd() === "/app" ||
+    Boolean(process.env.KUBERNETES_SERVICE_HOST) ||
+    Boolean(process.env.OTEL_SERVICE_NAME?.trim())
+  );
+}
+
 export function isDevelopmentRuntime() {
+  if (process.env.ALLOW_INVALID_RUNTIME_ENV === "true") {
+    return true;
+  }
+
+  if (isDeployedRuntime()) {
+    return false;
+  }
+
   return process.env.NODE_ENV === "development";
 }
 
 export function isProductionRuntime() {
   return !isDevelopmentRuntime();
+}
+
+function derivePlatformAuthSecret() {
+  if (!isDeployedRuntime()) {
+    return undefined;
+  }
+
+  const material = [
+    process.env.POSTGRES_PASSWORD,
+    process.env.POSTGRES_HOST,
+    process.env.POSTGRES_DATABASE,
+    process.env.POSTGRES_USER,
+    process.env.S3_SECRET_ACCESS_KEY,
+    process.env.S3_BUCKET_NAME,
+    process.env.OTEL_SERVICE_NAME,
+  ]
+    .map((value) => value?.trim())
+    .filter(Boolean);
+
+  if (material.length < 4) {
+    return undefined;
+  }
+
+  return createHash("sha256").update(material.join("\0")).digest("base64url");
 }
 
 function resolveAuthSecret() {
@@ -293,7 +333,17 @@ function resolveAuthSecret() {
     }
   }
 
-  return undefined;
+  return derivePlatformAuthSecret();
+}
+
+export function isAuthSecretDerived() {
+  for (const key of ["BETTER_AUTH_SECRET", "AUTH_SECRET"]) {
+    if (process.env[key]?.trim()) {
+      return false;
+    }
+  }
+
+  return Boolean(derivePlatformAuthSecret());
 }
 
 export function isMetricsServerEnabled() {
@@ -309,6 +359,16 @@ export function isMetricsServerEnabled() {
   return true;
 }
 
+function parseMetricsPortValue(raw: string | undefined) {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
+    return 8001;
+  }
+
+  const port = Number(trimmed);
+  return Number.isFinite(port) && port > 0 ? port : 8001;
+}
+
 export function getAuthConfig(strict = false) {
   const secret = resolveAuthSecret();
   const applicationUrl = getApplicationUrl();
@@ -318,11 +378,11 @@ export function getAuthConfig(strict = false) {
   if (strict) {
     if (!secret || secret.length < 32) {
       throw new Error(
-        "BETTER_AUTH_SECRET (or AUTH_SECRET) must be at least 32 characters.",
+        "Set BETTER_AUTH_SECRET (min 32 chars) or ensure platform database/storage env vars are configured.",
       );
     }
 
-    if (!configuredBaseUrl) {
+    if (!configuredBaseUrl && !isDeployedRuntime()) {
       throw new Error("Set APPLICATION_URL or BETTER_AUTH_URL.");
     }
   }

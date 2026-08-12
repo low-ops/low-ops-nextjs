@@ -44,7 +44,7 @@ Required in addition to the spec defaults:
 
 | Variable             | Example                             | Description                            |
 | -------------------- | ----------------------------------- | -------------------------------------- |
-| `BETTER_AUTH_SECRET` | output of `openssl rand -base64 32` | Auth signing secret (min 32 chars)     |
+| `BETTER_AUTH_SECRET` | output of `openssl rand -base64 32` | Auth signing secret (min 32 chars). Optional on Low-Ops — derived from platform DB/storage env when unset. |
 | `BETTER_AUTH_URL`    | `https://myapp.example.com`         | Public app URL for auth callbacks      |
 | `APPLICATION_URL`    | `https://myapp.example.com`         | Used as fallback for `BETTER_AUTH_URL` |
 | `METRICS_TOKEN`      | output of `openssl rand -base64 32` | Bearer token for `/metrics` (required in production) |

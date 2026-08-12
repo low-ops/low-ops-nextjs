@@ -9,12 +9,16 @@ export async function register() {
   const { startMetricsServer } = await import("@/lib/metrics-server");
   const { initOtel } = await import("@/lib/otel");
   const { registerShutdownHandlers } = await import("@/lib/shutdown");
-  const { isProductionRuntime, validateRuntimeEnv } = await import("@/lib/env");
+  const { isAuthSecretDerived, isMetricsServerEnabled, isProductionRuntime, validateRuntimeEnv } =
+    await import("@/lib/env");
   const { logger } = await import("@/lib/logger");
 
   try {
     validateRuntimeEnv();
-    logger.info("Runtime environment validated");
+    logger.info("Runtime environment validated", {
+      authSecretSource: isAuthSecretDerived() ? "platform-derived" : "configured",
+      metricsEnabled: isMetricsServerEnabled(),
+    });
   } catch (error) {
     logger.error("Missing or invalid runtime environment variables", {
       error: error instanceof Error ? error.message : String(error),
