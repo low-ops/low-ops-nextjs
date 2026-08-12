@@ -6,9 +6,11 @@ import { getS3Config, resolveS3ObjectKey } from "@/lib/env";
 let s3Client: S3Client | null = null;
 
 export function createS3Client(config = getS3Config()) {
+  const region = config.region.trim() || "us-east-1";
+
   return new S3Client({
     endpoint: config.endpoint,
-    region: config.region,
+    region,
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,

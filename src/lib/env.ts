@@ -17,7 +17,11 @@ const s3Schema = z.object({
   S3_BUCKET_NAME: z.string().min(1),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
-  S3_REGION: z.string().default("us-east-1"),
+  S3_REGION: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() ? value.trim() : "us-east-1",
+    z.string().min(1),
+  ),
 });
 
 function isLikelyAwsRegion(value: string | undefined) {
@@ -58,7 +62,8 @@ export function resolveS3Region(endpoint: string, defaultRegion: string) {
     }
   }
 
-  return extractRegionFromS3Endpoint(endpoint) ?? defaultRegion;
+  const region = extractRegionFromS3Endpoint(endpoint) ?? defaultRegion;
+  return region.trim() || "us-east-1";
 }
 
 export function getPostgresConfig() {
