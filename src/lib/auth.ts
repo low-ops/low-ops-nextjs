@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { getAuthConfig } from "@/lib/env";
+import { getAuthConfig, resolveTrustedOrigins } from "@/lib/env";
 import {
   applyFoundingAdminToNewUser,
   getExistingUserCount,
@@ -35,10 +35,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
 export const auth = betterAuth({
   secret: authConfig.secret,
-  baseURL: authConfig.baseURL,
-  ...(authConfig.trustedOrigins.length > 0
-    ? { trustedOrigins: authConfig.trustedOrigins }
-    : {}),
+  ...(authConfig.baseURL ? { baseURL: authConfig.baseURL } : {}),
+  trustedOrigins: async (request) => resolveTrustedOrigins(request),
+  advanced: {
+    trustedProxyHeaders: true,
+  },
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {

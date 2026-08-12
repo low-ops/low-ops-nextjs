@@ -159,6 +159,51 @@ function getTrustedOrigins() {
   return [...origins];
 }
 
+function resolveRequestOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  if (origin) {
+    return normalizeAppUrl(origin);
+  }
+
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+
+  if (forwardedHost) {
+    const host = forwardedHost.split(",")[0]?.trim();
+    if (host) {
+      return normalizeAppUrl(`${forwardedProto}://${host}`);
+    }
+  }
+
+  const host = request.headers.get("host");
+  if (host) {
+    const proto = host.startsWith("localhost") || host.startsWith("127.0.0.1")
+      ? "http"
+      : "https";
+
+    return normalizeAppUrl(`${proto}://${host}`);
+  }
+
+  return undefined;
+}
+
+export function resolveTrustedOrigins(request?: Request | null) {
+  const origins = new Set<string>(getTrustedOrigins());
+
+  if (request) {
+    const requestOrigin = resolveRequestOrigin(request);
+    if (requestOrigin) {
+      origins.add(requestOrigin);
+    }
+  }
+
+  if (origins.size === 0) {
+    origins.add(DEFAULT_BASE_URL);
+  }
+
+  return [...origins];
+}
+
 export function getOtelConfig() {
   const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
   const serviceName = process.env.OTEL_SERVICE_NAME?.trim();
@@ -182,7 +227,6 @@ export function getAuthConfig(strict = false) {
   const applicationUrl = getApplicationUrl();
   const betterAuthUrl = normalizeAppUrl(process.env.BETTER_AUTH_URL);
   const configuredBaseUrl = applicationUrl ?? betterAuthUrl;
-  const trustedOrigins = getTrustedOrigins();
 
   if (strict) {
     if (!secret || secret.length < 32) {
@@ -197,8 +241,8 @@ export function getAuthConfig(strict = false) {
   return {
     secret:
       secret && secret.length >= 32 ? secret : DEFAULT_AUTH_SECRET,
-    baseURL: configuredBaseUrl ?? DEFAULT_BASE_URL,
-    trustedOrigins,
+    baseURL: configuredBaseUrl,
+    trustedOrigins: getTrustedOrigins(),
   };
 }
 
