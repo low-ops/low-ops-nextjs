@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { FormError, FormSuccess } from "@/components/ui/form-messages";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DEFAULT_SIGN_IN_REDIRECT } from "@/lib/config";
 import { signUpSchema, SignUpSchema } from "@/lib/schemas";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import React from "react";
 import { Controller, useForm } from "react-hook-form";
 
 const SignUpForm = () => {
+  const router = useRouter();
   const [formState, setFormState] = React.useState<{
     success?: string;
     error?: string;
@@ -32,6 +35,7 @@ const SignUpForm = () => {
     const result = await signUpUser(data);
     if (result.success) {
       setFormState({ success: result.success.reason });
+      router.push(result.data?.redirectTo ?? DEFAULT_SIGN_IN_REDIRECT);
     } else if (result.error) {
       setFormState({ error: result.error.reason });
     }

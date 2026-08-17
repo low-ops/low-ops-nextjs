@@ -1,16 +1,18 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { APIError } from "better-auth/api";
-import { ActionResult } from "@/lib/schemas";
-import { signUpSchema, SignUpSchema } from "@/lib/schemas";
 import { DEFAULT_SIGN_IN_REDIRECT } from "@/lib/config";
 import { isEmailVerificationEnabled } from "@/lib/email";
 import { isRegistrationEnabled } from "@/lib/founding-admins";
+import { ActionResult, signUpSchema, SignUpSchema } from "@/lib/schemas";
+import { APIError } from "better-auth/api";
 
-export async function signUpUser(
-  formData: SignUpSchema,
-): Promise<ActionResult> {
+export async function signUpUser(formData: SignUpSchema): Promise<
+  ActionResult<{
+    user: { id: string; email: string };
+    redirectTo: string;
+  }>
+> {
   const parsed = signUpSchema.safeParse(formData);
 
   if (!parsed.success) {
@@ -39,14 +41,21 @@ export async function signUpUser(
       },
     });
 
+    const emailVerificationEnabled = isEmailVerificationEnabled();
+
     return {
       success: {
-        reason: isEmailVerificationEnabled()
-          ? "Sign up successful! Check your email to confirm your account, then sign in."
-          : "Sign up successful! Please sign in to continue.",
+        reason: emailVerificationEnabled
+          ? "Sign up successful! Check your email to confirm your account."
+          : "Account created successfully!",
       },
       error: null,
-      data: { user: { id: user.id, email: user.email } },
+      data: {
+        user: { id: user.id, email: user.email },
+        redirectTo: emailVerificationEnabled
+          ? "/auth/sign-in"
+          : DEFAULT_SIGN_IN_REDIRECT,
+      },
     };
   } catch (error) {
     if (error instanceof APIError) {

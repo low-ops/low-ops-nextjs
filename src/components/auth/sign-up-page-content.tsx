@@ -6,8 +6,6 @@ import { GithubIcon, GoogleIcon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/logo";
 import { signInWithGithub, signInWithGoogle } from "@/lib/auth-client";
 import Image from "next/image";
-import Link from "next/link";
-
 const isGoogleEnabled = process.env.GOOGLE_CLIENT_ID !== undefined;
 const isGithubEnabled = process.env.GITHUB_CLIENT_ID !== undefined;
 
@@ -74,16 +72,6 @@ export function SignUpPageContent() {
                   </div>
                 </>
               )}
-
-              <p className="text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <Link
-                  href="/auth/sign-in"
-                  className="underline underline-offset-4 hover:text-primary"
-                >
-                  Sign in
-                </Link>
-              </p>
             </div>
           </div>
         </div>
