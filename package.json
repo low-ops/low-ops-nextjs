@@ -11,9 +11,9 @@
     "url": "https://github.com/cinaq/low-ops-nextjs-starter"
   },
   "scripts": {
-    "dev": "next dev --turbopack -p ${PORT:-8000}",
-    "build": "next build",
-    "start": "next start -p ${PORT:-8000}",
+    "dev": "NODE_ENV=development next dev --turbopack -p ${PORT:-8000}",
+    "build": "NODE_ENV=production next build",
+    "start": "NODE_ENV=production next start -p ${PORT:-8000}",
     "lint": "eslint .",
     "db:create": "docker compose up -d postgres minio minio-init",
     "compose:up": "docker compose --profile app up -d --build",

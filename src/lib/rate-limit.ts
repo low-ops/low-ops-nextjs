@@ -5,23 +5,10 @@ type RateLimitEntry = {
   resetAt: number;
 };
 
+const AUTH_RATE_LIMIT_MAX = 20;
+const AUTH_RATE_LIMIT_WINDOW_MS = 60_000;
+
 const store = new Map<string, RateLimitEntry>();
-
-const DEFAULT_MAX = 20;
-const DEFAULT_WINDOW_MS = 60_000;
-
-function getAuthRateLimitConfig() {
-  const max = Number(process.env.AUTH_RATE_LIMIT_MAX ?? DEFAULT_MAX);
-  const windowMs = Number(
-    process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? DEFAULT_WINDOW_MS,
-  );
-
-  return {
-    max: Number.isFinite(max) && max > 0 ? max : DEFAULT_MAX,
-    windowMs:
-      Number.isFinite(windowMs) && windowMs > 0 ? windowMs : DEFAULT_WINDOW_MS,
-  };
-}
 
 function pruneExpiredEntries(now: number) {
   if (store.size <= 10_000) {
@@ -56,18 +43,20 @@ export function checkAuthRateLimit(clientKey: string): {
   success: boolean;
   retryAfter?: number;
 } {
-  const { max, windowMs } = getAuthRateLimitConfig();
   const now = Date.now();
   pruneExpiredEntries(now);
 
   const entry = store.get(clientKey);
 
   if (!entry || now >= entry.resetAt) {
-    store.set(clientKey, { count: 1, resetAt: now + windowMs });
+    store.set(clientKey, {
+      count: 1,
+      resetAt: now + AUTH_RATE_LIMIT_WINDOW_MS,
+    });
     return { success: true };
   }
 
-  if (entry.count >= max) {
+  if (entry.count >= AUTH_RATE_LIMIT_MAX) {
     return {
       success: false,
       retryAfter: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),

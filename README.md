@@ -68,7 +68,7 @@ OpenAPI schema: `openapi.yaml` in the repository root.
 - Google and GitHub sign-in are enabled when their client ID/secret env vars are set.
 - Auth pages live at `/auth/sign-in` and `/auth/sign-up`; the admin dashboard is at `/admin/users`.
 - `/metrics` requires `METRICS_TOKEN` when the token is set (`Authorization: Bearer <token>`).
-- Auth write endpoints are rate-limited per IP (`AUTH_RATE_LIMIT_MAX` / `AUTH_RATE_LIMIT_WINDOW_MS`).
+- Auth write endpoints are rate-limited per IP (20 requests per 60 seconds).
 
 ### Environment variables
 
@@ -85,7 +85,6 @@ OpenAPI schema: `openapi.yaml` in the repository root.
 | `S3_ACCESS_KEY_ID`                          | yes      | —           | S3 access key. (✅ Available in Low-Ops)                                                  |
 | `S3_SECRET_ACCESS_KEY`                      | yes      | —           | S3 secret key. (✅ Available in Low-Ops)                                                  |
 | `S3_REGION`                                 | no       | `us-east-1` | S3 region. (✅ Available in Low-Ops)                                                      |
-| `S3_PUBLIC_BASE_URL`                        | no       | —           | Public URL for browser-accessible file links. (✅ Available in Low-Ops)                   |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`               | no       | —           | OpenTelemetry collector endpoint. (✅ Available in Low-Ops)                               |
 | `OTEL_SERVICE_NAME`                         | no       | —           | OpenTelemetry service name. (✅ Available in Low-Ops)                                     |
 | `RESEND_API_KEY`                            | no       | —           | Enables email verification when set (optional).                                           |
@@ -98,8 +97,6 @@ OpenAPI schema: `openapi.yaml` in the repository root.
 | `METRICS_HOST`                              | no       | `127.0.0.1` | Metrics server bind address (`0.0.0.0` in production).                                    |
 | `METRICS_TOKEN`                             | prod     | —           | Bearer token for `/metrics` when set.                                                     |
 | `TRUSTED_ORIGINS`                           | no       | —           | Comma-separated extra allowed auth origins.                                               |
-| `AUTH_RATE_LIMIT_MAX`                       | no       | `20`        | Max auth API writes per IP per window.                                                    |
-| `AUTH_RATE_LIMIT_WINDOW_MS`                 | no       | `60000`     | Auth rate limit window in milliseconds.                                                   |
 
 See `.env.example` for a full local template.
 
