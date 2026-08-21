@@ -1,8 +1,20 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { APIError } from "better-auth/api";
+import { isAPIError } from "better-auth/api";
 import { ActionResult } from "@/lib/schemas";
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (isAPIError(error)) {
+    return error.message || fallback;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
 
 export async function signInUser({
   email,
@@ -20,13 +32,11 @@ export async function signInUser({
       data: undefined,
     };
   } catch (err) {
-    if (err instanceof APIError) {
-      return {
-        error: { reason: err.message },
-        success: null,
-      };
-    }
+    console.error("Sign in failed", err);
 
-    return { error: { reason: "Something went wrong." }, success: null };
+    return {
+      error: { reason: getErrorMessage(err, "Something went wrong.") },
+      success: null,
+    };
   }
 }

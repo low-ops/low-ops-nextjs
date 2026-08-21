@@ -5,7 +5,19 @@ import { DEFAULT_SIGN_IN_REDIRECT } from "@/lib/config";
 import { isEmailVerificationEnabled } from "@/lib/email";
 import { isRegistrationEnabled } from "@/lib/founding-admins";
 import { ActionResult, signUpSchema, SignUpSchema } from "@/lib/schemas";
-import { APIError } from "better-auth/api";
+import { isAPIError } from "better-auth/api";
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (isAPIError(error)) {
+    return error.message || fallback;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
 
 export async function signUpUser(formData: SignUpSchema): Promise<
   ActionResult<{
@@ -32,7 +44,7 @@ export async function signUpUser(formData: SignUpSchema): Promise<
   }
 
   try {
-    const { user } = await auth.api.signUpEmail({
+    const result = await auth.api.signUpEmail({
       body: {
         email,
         password,
@@ -40,6 +52,13 @@ export async function signUpUser(formData: SignUpSchema): Promise<
         callbackURL: DEFAULT_SIGN_IN_REDIRECT,
       },
     });
+
+    if (!result?.user) {
+      return {
+        success: null,
+        error: { reason: "Failed to create account." },
+      };
+    }
 
     const emailVerificationEnabled = isEmailVerificationEnabled();
 
@@ -51,25 +70,27 @@ export async function signUpUser(formData: SignUpSchema): Promise<
       },
       error: null,
       data: {
-        user: { id: user.id, email: user.email },
+        user: { id: result.user.id, email: result.user.email },
         redirectTo: emailVerificationEnabled
           ? "/auth/sign-in"
           : DEFAULT_SIGN_IN_REDIRECT,
       },
     };
   } catch (error) {
-    if (error instanceof APIError) {
-      console.error(error?.message ?? JSON.stringify(error));
-      switch (error.status) {
-        case "UNPROCESSABLE_ENTITY":
-          return { error: { reason: "User already exists." }, success: null };
-        case "BAD_REQUEST":
-          return { error: { reason: "Invalid email." }, success: null };
-        default:
-          return { error: { reason: "Something went wrong." }, success: null };
-      }
+    if (isAPIError(error)) {
+      console.error("Sign up failed", {
+        status: error.status,
+        statusCode: error.statusCode,
+        message: error.message,
+        body: error.body,
+      });
+    } else {
+      console.error("Sign up failed", error);
     }
 
-    return { error: { reason: "Something went wrong." }, success: null };
+    return {
+      success: null,
+      error: { reason: getErrorMessage(error, "Something went wrong.") },
+    };
   }
 }
