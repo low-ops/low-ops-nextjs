@@ -59,6 +59,7 @@ export async function signUpUser(formData: SignUpSchema): Promise<
     };
   } catch (error) {
     if (error instanceof APIError) {
+      console.error(error?.message ?? JSON.stringify(error));
       switch (error.status) {
         case "UNPROCESSABLE_ENTITY":
           return { error: { reason: "User already exists." }, success: null };
