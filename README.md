@@ -1,27 +1,28 @@
-# Low-Ops Nextjs Starter Template
-
-A modern, production-ready Next.js boilerplate with comprehensive authentication, admin dashboard, and user management features. Built by Low-Ops for rapid application development.
+# Low-Ops Next.js Default Template
 
 <p align="left">
   <img src="./public/lowops-logo.svg" height="50" width="60" alt="Low-Ops logo" style="background: white; padding: 20px; border-radius: 10px; margin-right: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
-  <img src="./public/nextjs-logo.svg" height="50" width="60" alt="NextJS logo" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
+  <img src="./public/nextjs-logo.svg" height="50" width="60" alt="Next.js logo" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1)"/>
 </p>
+
+A production-ready Next.js starter with authentication, admin dashboard, user management, PostgreSQL, and S3-compatible storage.
 
 ## Local development
 
-#### Create PostgreSQL and MinIO (s3 compatible storage)
+PostgreSQL and MinIO are required for both local development and production. Start them with Docker Compose:
 
 ```bash
-npm run db:create
+docker compose up -d postgres minio minio-init
 ```
 
 #### Install dependencies
 
 ```bash
 npm install
+cp .env.example .env
 ```
 
-#### Run database migrations (to create tables and indexes)
+#### Run database migrations
 
 ```bash
 npm run db:migrate
@@ -33,86 +34,78 @@ npm run db:migrate
 npm run dev
 ```
 
-- App: `PORT` (default `8000`), health `GET /ready`
-- Metrics: `METRICS_PORT` (default `8001`) Prometheus `/metrics` (requires `Authorization: Bearer <METRICS_TOKEN>` when token is set)
-- HTML and API responses use no-cache headers
-- Compose includes PostgreSQL and MinIO
+### API endpoints
 
-## Low-Ops deployment env vars
+Better Auth routes are served under `/api/auth/*`. Custom app routes are listed separately.
 
-Required in addition to the spec defaults:
+| Method | Path                                   | Description             |
+| ------ | -------------------------------------- | ----------------------- |
+| `POST` | `/api/auth/sign-in/email`              | Sign in                 |
+| `POST` | `/api/auth/sign-up/email`              | Sign up                 |
+| `POST` | `/api/auth/sign-out`                   | Sign out                |
+| `GET`  | `/api/auth/get-session`                | Current session         |
+| `POST` | `/api/auth/verify-email`               | Verify email            |
+| `POST` | `/api/auth/send-verification-email`    | Send verification email |
+| `POST` | `/api/auth/update-user`                | Update profile          |
+| `POST` | `/api/auth/revoke-sessions`            | Revoke own sessions     |
+| `POST` | `/api/user/avatar`                     | Upload avatar           |
+| `GET`  | `/api/user/avatar/{user_id}`           | Serve avatar            |
+| `GET`  | `/api/admin/users`                     | List users (admin)      |
+| `POST` | `/api/auth/admin/create-user`          | Create user (admin)     |
+| `POST` | `/api/auth/admin/ban-user`             | Ban user (admin)        |
+| `POST` | `/api/auth/admin/unban-user`           | Unban user (admin)      |
+| `POST` | `/api/auth/admin/set-role`             | Set role (admin)        |
+| `POST` | `/api/auth/admin/remove-user`          | Delete user (admin)     |
+| `POST` | `/api/auth/admin/revoke-user-sessions` | Revoke sessions (admin) |
 
-| Variable             | Example                             | Description                            |
-| -------------------- | ----------------------------------- | -------------------------------------- |
-| `BETTER_AUTH_SECRET` | output of `openssl rand -base64 32` | Auth signing secret (min 32 chars). Optional on Low-Ops — derived from platform DB/storage env when unset. |
-| `BETTER_AUTH_URL`    | `https://myapp.example.com`         | Public app URL for auth callbacks      |
-| `APPLICATION_URL`    | `https://myapp.example.com`         | Used as fallback for `BETTER_AUTH_URL` |
-| `METRICS_TOKEN`      | output of `openssl rand -base64 32` | Optional bearer token for `/metrics`. When unset, metrics are open (typical for Low-Ops internal scraping). |
+OpenAPI schema: `openapi.yaml` in the repository root.
 
-`PORT` defaults to `8000` in the container if the platform does not set it.
+### Behavior notes
 
-Optional:
+- Sign-up is open only until the first user exists. That user is created as **admin**; further sign-ups return **400**.
+- After `npm run db:migrate`, visit `/auth/sign-up` locally to create the first admin account.
+- Email verification is enabled when `RESEND_API_KEY` is set; otherwise new users are auto-verified.
+- Google and GitHub sign-in are enabled when their client ID/secret env vars are set.
+- Auth pages live at `/auth/sign-in` and `/auth/sign-up`; the admin dashboard is at `/admin/users`.
+- `/metrics` requires `METRICS_TOKEN` when the token is set (`Authorization: Bearer <token>`).
+- Auth write endpoints are rate-limited per IP (`AUTH_RATE_LIMIT_MAX` / `AUTH_RATE_LIMIT_WINDOW_MS`).
 
-| Variable | Example | Description |
-| -------- | ------- | ----------- |
-| `TRUSTED_ORIGINS` | `https://staging.example.com` | Comma-separated extra allowed auth origins |
-| `AUTH_RATE_LIMIT_MAX` | `20` | Max auth API writes per IP per window |
-| `AUTH_RATE_LIMIT_WINDOW_MS` | `60000` | Auth rate limit window in milliseconds |
-| `METRICS_HOST` | `0.0.0.0` | Metrics server bind address (default `127.0.0.1` in dev) |
+### Environment variables
 
-## ✨ Features
+| Variable                                    | Required | Default     | Description                                                                               |
+| ------------------------------------------- | -------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `APPLICATION_URL`                           | yes      | —           | Public app URL. (✅ Available in Low-Ops)                                                 |
+| `POSTGRES_HOST`                             | yes      | —           | PostgreSQL host. (✅ Available in Low-Ops)                                                |
+| `POSTGRES_PORT`                             | no       | `5432`      | PostgreSQL port. (✅ Available in Low-Ops)                                                |
+| `POSTGRES_DATABASE`                         | yes      | —           | PostgreSQL database name. (✅ Available in Low-Ops)                                       |
+| `POSTGRES_USER`                             | yes      | —           | PostgreSQL user. (✅ Available in Low-Ops)                                                |
+| `POSTGRES_PASSWORD`                         | yes      | —           | PostgreSQL password. (✅ Available in Low-Ops)                                            |
+| `S3_ENDPOINT`                               | yes      | —           | S3 endpoint. (✅ Available in Low-Ops)                                                    |
+| `S3_BUCKET_NAME`                            | yes      | —           | Bucket name. (✅ Available in Low-Ops)                                                    |
+| `S3_ACCESS_KEY_ID`                          | yes      | —           | S3 access key. (✅ Available in Low-Ops)                                                  |
+| `S3_SECRET_ACCESS_KEY`                      | yes      | —           | S3 secret key. (✅ Available in Low-Ops)                                                  |
+| `S3_REGION`                                 | no       | `us-east-1` | S3 region. (✅ Available in Low-Ops)                                                      |
+| `S3_PUBLIC_BASE_URL`                        | no       | —           | Public URL for browser-accessible file links. (✅ Available in Low-Ops)                   |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`               | no       | —           | OpenTelemetry collector endpoint. (✅ Available in Low-Ops)                               |
+| `OTEL_SERVICE_NAME`                         | no       | —           | OpenTelemetry service name. (✅ Available in Low-Ops)                                     |
+| `RESEND_API_KEY`                            | no       | —           | Enables email verification when set (optional).                                           |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no       | —           | To use Google as sign-in provider (optional).                                             |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | no       | —           | To use GitHub as sign-in provider (optional).                                             |
+| `BETTER_AUTH_SECRET`                        | yes      | —           | Auth signing secret (min 32 chars). Auto-derived from platform DB/storage env when unset. |
+| `BETTER_AUTH_URL`                           | no       | —           | Public app URL for auth callbacks. Falls back to `APPLICATION_URL`.                       |
+| `PORT`                                      | no       | `8000`      | HTTP server port.                                                                         |
+| `METRICS_PORT`                              | no       | `8001`      | Prometheus metrics port.                                                                  |
+| `METRICS_HOST`                              | no       | `127.0.0.1` | Metrics server bind address (`0.0.0.0` in production).                                    |
+| `METRICS_TOKEN`                             | prod     | —           | Bearer token for `/metrics` when set.                                                     |
+| `TRUSTED_ORIGINS`                           | no       | —           | Comma-separated extra allowed auth origins.                                               |
+| `AUTH_RATE_LIMIT_MAX`                       | no       | `20`        | Max auth API writes per IP per window.                                                    |
+| `AUTH_RATE_LIMIT_WINDOW_MS`                 | no       | `60000`     | Auth rate limit window in milliseconds.                                                   |
 
-### 🔐 Authentication
+See `.env.example` for a full local template.
 
-- **Email & Password Authentication** with email verification
-- **Session Management** with secure token handling
-- **Account Linking** support
-- **Role-based Access Control** (Admin, User roles)
+### Platform endpoints
 
-### 👥 User Management
-
-- **User Registration & Login** with form validation
-- **Email Verification** system
-- **Profile Management**
-- **User Banning/Unbanning** with expiration dates
-- **Session Revocation** for security
-
-### 🛡️ Admin Dashboard
-
-- **User Management Interface** - View, edit, ban/unban users
-- **Role Assignment** - Manage user permissions
-- **User Actions** - Delete users, revoke sessions
-- **Responsive Admin UI** with modern design
-
-### 🎨 UI/UX
-
-- **Modern Design System** with Tailwind CSS
-- **Responsive Layout** for all devices
-- **Component Library** with Radix UI primitives
-- **Form Validation** with React Hook Form + Zod
-- **Toast Notifications** for user feedback
-
-## 🛠️ Tech Stack
-
-- **Framework:** Next.js 16 with App Router
-- **Authentication:** Better Auth
-- **Database:** PostgreSQL with Drizzle ORM
-- **Storage:** MinIO (s3 compatible storage)
-- **Styling:** Tailwind CSS
-- **UI Components:** Radix UI
-- **Form Handling:** React Hook Form
-- **Validation:** Zod
-- **Email:** Resend
-- **TypeScript:** Full type safety
-
-## 🔧 Available Scripts
-
-- `npm dev` - Start development server with Turbopack
-- `npm build` - Build for production
-- `npm start` - Start production server
-- `npm lint` - Run ESLint
-- `npm db:create` - Creates database and minio in your local docker
-- `npm db:generate` - Generate database migrations
-- `npm db:migrate` - Run database migrations
-- `npm db:push` - Push database migrations to the database
-- `npm db:studio` - Open the Drizzle ORM Studio
+| Endpoint       | Port           | Description                                                         |
+| -------------- | -------------- | ------------------------------------------------------------------- |
+| `GET /ready`   | `PORT`         | Readiness probe. Returns `{ status, checks: { postgres, s3 } }`.    |
+| `GET /metrics` | `METRICS_PORT` | Prometheus metrics. Requires `METRICS_TOKEN` when the token is set. |
