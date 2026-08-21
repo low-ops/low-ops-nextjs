@@ -17,10 +17,8 @@
     "lint": "eslint .",
     "db:create": "docker compose up -d postgres minio minio-init",
     "compose:up": "docker compose --profile app up -d --build",
-    "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:prod": "node scripts/migrate.mjs",
-    "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

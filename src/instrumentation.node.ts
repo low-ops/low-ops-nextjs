@@ -1,7 +1,3 @@
-import { runMigrations } from "@/lib/migrate";
-import { startMetricsServer } from "@/lib/metrics-server";
-import { initOtel } from "@/lib/otel";
-import { registerShutdownHandlers } from "@/lib/shutdown";
 import {
   isAuthSecretDerived,
   isMetricsServerEnabled,
@@ -9,6 +5,10 @@ import {
   validateRuntimeEnv,
 } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { startMetricsServer } from "@/lib/metrics-server";
+import { runMigrations } from "@/lib/migrate";
+import { initOtel } from "@/lib/otel";
+import { registerShutdownHandlers } from "@/lib/shutdown";
 
 function exitOnProductionFailure(): never {
   process.exit(1);
@@ -18,7 +18,9 @@ export async function startNodeRuntime() {
   try {
     validateRuntimeEnv();
     logger.info("Runtime environment validated", {
-      authSecretSource: isAuthSecretDerived() ? "platform-derived" : "configured",
+      authSecretSource: isAuthSecretDerived()
+        ? "platform-derived"
+        : "configured",
       metricsEnabled: isMetricsServerEnabled(),
     });
   } catch (error) {
