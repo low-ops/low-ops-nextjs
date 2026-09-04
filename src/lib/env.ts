@@ -11,6 +11,24 @@ const postgresSchema = z.object({
   POSTGRES_PASSWORD: z.string(),
 });
 
+type PostgresConfig = z.infer<typeof postgresSchema>;
+
+const BUILD_POSTGRES_CONFIG: PostgresConfig = {
+  POSTGRES_HOST: "127.0.0.1",
+  POSTGRES_PORT: "5432",
+  POSTGRES_DATABASE: "build",
+  POSTGRES_USER: "build",
+  POSTGRES_PASSWORD: "build",
+};
+
+function isBuildTime() {
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    (process.env.NODE_ENV === "production" &&
+      !process.env.POSTGRES_HOST?.trim())
+  );
+}
+
 const s3Schema = z.object({
   S3_ENDPOINT: z.string().min(1),
   S3_BUCKET_NAME: z.string().min(1),
@@ -24,6 +42,10 @@ const s3Schema = z.object({
 });
 
 export function getPostgresConfig() {
+  if (isBuildTime()) {
+    return BUILD_POSTGRES_CONFIG;
+  }
+
   return postgresSchema.parse(process.env);
 }
 
@@ -86,6 +108,18 @@ export function resolveS3ObjectKey(relativeKey: string, prefix = "") {
 }
 
 export function getS3Config() {
+  if (isBuildTime()) {
+    return {
+      endpoint: "http://127.0.0.1:9000",
+      bucket: "build",
+      prefix: "",
+      accessKeyId: "build",
+      secretAccessKey: "build",
+      region: "us-east-1",
+      forcePathStyle: true as const,
+    };
+  }
+
   const s3 = s3Schema.parse(process.env);
   const { bucket, prefix } = parseS3BucketName(s3.S3_BUCKET_NAME);
   const endpoint = normalizeS3Endpoint(s3.S3_ENDPOINT);
