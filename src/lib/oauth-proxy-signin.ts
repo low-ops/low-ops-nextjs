@@ -152,37 +152,26 @@ async function upsertGoogleUser(identity: OAuthProxyIdentity) {
 
   if (!existingAccount) {
     const now = new Date();
-    await db.execute(sql`
-      INSERT INTO account (
-        id,
-        account_id,
-        provider_id,
-        user_id,
-        access_token,
-        id_token,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        ${crypto.randomUUID()},
-        ${identity.accountId},
-        ${"google"},
-        ${nextUser.id},
-        ${identity.accessToken ?? null},
-        ${identity.idToken ?? null},
-        ${now},
-        ${now}
-      )
-    `);
+    await db.insert(account).values({
+      id: crypto.randomUUID(),
+      accountId: identity.accountId,
+      providerId: "google",
+      issuer: "google",
+      userId: nextUser.id,
+      accessToken: identity.accessToken ?? null,
+      idToken: identity.idToken ?? null,
+      createdAt: now,
+      updatedAt: now,
+    });
   } else if (identity.idToken || identity.accessToken) {
-    await db.execute(sql`
-      UPDATE account
-      SET
-        id_token = COALESCE(${identity.idToken ?? null}, id_token),
-        access_token = COALESCE(${identity.accessToken ?? null}, access_token),
-        updated_at = ${new Date()}
-      WHERE id = ${existingAccount.id}
-    `);
+    await db
+      .update(account)
+      .set({
+        ...(identity.idToken ? { idToken: identity.idToken } : {}),
+        ...(identity.accessToken ? { accessToken: identity.accessToken } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(account.id, existingAccount.id));
   }
 
   return nextUser;
