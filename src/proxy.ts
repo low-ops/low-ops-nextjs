@@ -43,6 +43,10 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   try {
+    if (pathname === "/ready" || pathname.startsWith("/ready/")) {
+      return finalizeResponse(request, NextResponse.next(), startedAt);
+    }
+
     if (isAuthRateLimitPath(pathname, request.method)) {
       const rateLimit = checkAuthRateLimit(getClientIp(request));
 
