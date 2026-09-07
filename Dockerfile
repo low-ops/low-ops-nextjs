@@ -38,6 +38,6 @@ COPY --from=build --chown=nextjs:nodejs /app/drizzle ./drizzle
 USER nextjs
 ENV PORT=8000
 ENV HOSTNAME="0.0.0.0"
-EXPOSE $PORT
+EXPOSE 8000
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "PORT=8000 HOSTNAME=0.0.0.0 exec node server.js"]
