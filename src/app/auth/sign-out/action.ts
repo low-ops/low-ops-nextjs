@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { getOAuth2ProxySignOutUrl } from "@/lib/env";
 import { getDefaultAuthPath } from "@/lib/founding-admins";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -16,5 +17,7 @@ export async function signOutUser() {
     headers: requestHeaders,
   });
 
-  redirect(await getDefaultAuthPath());
+  redirect(
+    getOAuth2ProxySignOutUrl(requestHeaders) ?? (await getDefaultAuthPath()),
+  );
 }

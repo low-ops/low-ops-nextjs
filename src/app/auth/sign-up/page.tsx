@@ -1,4 +1,5 @@
 import { SignUpPageContent } from "@/components/auth/sign-up-page-content";
+import { isGithubSignInEnabled, isGoogleSignInEnabled } from "@/lib/env";
 import { isRegistrationEnabled } from "@/lib/founding-admins";
 import { redirect } from "next/navigation";
 
@@ -9,7 +10,12 @@ const SignUpPage = async () => {
     redirect("/auth/sign-in");
   }
 
-  return <SignUpPageContent />;
+  return (
+    <SignUpPageContent
+      googleEnabled={isGoogleSignInEnabled()}
+      githubEnabled={isGithubSignInEnabled()}
+    />
+  );
 };
 
 export default SignUpPage;

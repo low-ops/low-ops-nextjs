@@ -6,10 +6,16 @@ import { GithubIcon, GoogleIcon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/logo";
 import { signInWithGithub, signInWithGoogle } from "@/lib/auth-client";
 import Image from "next/image";
-const isGoogleEnabled = process.env.GOOGLE_CLIENT_ID !== undefined;
-const isGithubEnabled = process.env.GITHUB_CLIENT_ID !== undefined;
 
-export function SignUpPageContent() {
+type SignUpPageContentProps = {
+  googleEnabled?: boolean;
+  githubEnabled?: boolean;
+};
+
+export function SignUpPageContent({
+  googleEnabled = false,
+  githubEnabled = false,
+}: SignUpPageContentProps) {
   return (
     <div className="grid min-h-svh xl:grid-cols-2">
       <div className="bg-muted relative hidden xl:flex xl:items-center xl:justify-center rounded-r-3xl overflow-hidden">
@@ -38,7 +44,7 @@ export function SignUpPageContent() {
 
               <SignUpForm />
 
-              {(isGoogleEnabled || isGithubEnabled) && (
+              {(googleEnabled || githubEnabled) && (
                 <>
                   <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
                     <span className="relative z-10 bg-background px-2 text-muted-foreground">
@@ -47,7 +53,7 @@ export function SignUpPageContent() {
                   </div>
 
                   <div className="flex flex-col gap-3">
-                    {isGithubEnabled && (
+                    {githubEnabled && (
                       <Button
                         variant="outline"
                         className="w-full"
@@ -58,7 +64,7 @@ export function SignUpPageContent() {
                         Sign up with GitHub
                       </Button>
                     )}
-                    {isGoogleEnabled && (
+                    {googleEnabled && (
                       <Button
                         variant="outline"
                         className="w-full"

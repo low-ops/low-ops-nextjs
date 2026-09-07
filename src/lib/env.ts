@@ -201,6 +201,80 @@ export function getApplicationUrl() {
   return undefined;
 }
 
+function parseBooleanEnv(value: string | undefined, defaultValue: boolean) {
+  if (value == null || !value.trim()) {
+    return defaultValue;
+  }
+
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
+export function isOAuthProxyEnabled() {
+  return parseBooleanEnv(process.env.OAUTH_PROXY_ENABLED, true);
+}
+
+export function isGoogleSignInEnabled() {
+  return Boolean(
+    process.env.GOOGLE_CLIENT_ID?.trim() &&
+      process.env.GOOGLE_CLIENT_SECRET?.trim(),
+  );
+}
+
+export function isGithubSignInEnabled() {
+  return Boolean(
+    process.env.GITHUB_CLIENT_ID?.trim() &&
+      process.env.GITHUB_CLIENT_SECRET?.trim(),
+  );
+}
+
+export function getOAuth2ProxyUrl() {
+  return (
+    process.env.OAUTH2_PROXY_URL?.trim() ||
+    "http://oauth2-proxy-apps.lowops-devops.svc.cluster.local"
+  ).replace(/\/$/, "");
+}
+
+export function getRequestHostname(headerStore: Headers) {
+  const forwarded = headerStore.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwarded || headerStore.get("host") || "";
+  return host.split(":")[0]?.trim().toLowerCase() ?? "";
+}
+
+export function getBaseDomain(hostname: string | undefined) {
+  const normalized = (hostname || "").split(":")[0]?.trim().toLowerCase().replace(/^\.+/, "");
+  if (!normalized || normalized === "localhost" || normalized === "127.0.0.1") {
+    return undefined;
+  }
+
+  const parts = normalized.split(".").filter(Boolean);
+  if (parts.length < 2) {
+    return undefined;
+  }
+
+  if (parts.length >= 3) {
+    return parts.slice(1).join(".");
+  }
+
+  return normalized;
+}
+
+const GOOGLE_LOGOUT_URL = "https://accounts.google.com/Logout";
+
+export function getOAuth2ProxySignOutUrl(headerStore?: Headers) {
+  const explicit = process.env.OAUTH2_PROXY_SIGN_OUT_URL?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const hostname = headerStore ? getRequestHostname(headerStore) : undefined;
+  const baseDomain = getBaseDomain(hostname);
+  if (!baseDomain) {
+    return undefined;
+  }
+
+  return `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=${encodeURIComponent(GOOGLE_LOGOUT_URL)}`;
+}
+
 export function getTrustedOrigins() {
   const origins = new Set<string>();
   const applicationUrl = getApplicationUrl();

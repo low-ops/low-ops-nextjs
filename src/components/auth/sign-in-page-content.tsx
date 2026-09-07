@@ -8,15 +8,16 @@ import { signInWithGithub, signInWithGoogle } from "@/lib/auth-client";
 import Image from "next/image";
 import Link from "next/link";
 
-const isGoogleEnabled = process.env.GOOGLE_CLIENT_ID !== undefined;
-const isGithubEnabled = process.env.GITHUB_CLIENT_ID !== undefined;
-
 type SignInPageContentProps = {
   registrationEnabled: boolean;
+  googleEnabled?: boolean;
+  githubEnabled?: boolean;
 };
 
 export function SignInPageContent({
   registrationEnabled,
+  googleEnabled = false,
+  githubEnabled = false,
 }: SignInPageContentProps) {
   return (
     <div className="grid min-h-svh xl:grid-cols-2">
@@ -47,7 +48,7 @@ export function SignInPageContent({
 
               <SignInForm />
 
-              {(isGoogleEnabled || isGithubEnabled) && (
+              {(googleEnabled || githubEnabled) && (
                 <>
                   <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
                     <span className="relative z-10 bg-background px-2 text-muted-foreground">
@@ -56,7 +57,7 @@ export function SignInPageContent({
                   </div>
 
                   <div className="flex flex-col gap-3">
-                    {isGithubEnabled && (
+                    {githubEnabled && (
                       <Button
                         variant="outline"
                         className="w-full"
@@ -67,7 +68,7 @@ export function SignInPageContent({
                         Sign in with GitHub
                       </Button>
                     )}
-                    {isGoogleEnabled && (
+                    {googleEnabled && (
                       <Button
                         variant="outline"
                         className="w-full"

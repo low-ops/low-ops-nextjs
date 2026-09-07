@@ -9,6 +9,11 @@ import {
   recordHttpRequest,
 } from "@/lib/metrics";
 import {
+  applyOAuthProxySignIn,
+  applySetCookies,
+} from "@/lib/oauth-proxy-signin";
+import { isProbeRequest } from "@/lib/oauth-proxy";
+import {
   checkAuthRateLimit,
   getClientIp,
   isAuthRateLimitPath,
@@ -60,29 +65,95 @@ export async function proxy(request: NextRequest) {
       headers: request.headers,
     });
 
-    if (session && pathname.startsWith("/auth/")) {
+    const oauthCookies: string[] = [];
+    let hasSession = Boolean(session);
+
+    if (!isProbeRequest(request.headers, pathname)) {
+      const oauthSignIn = await applyOAuthProxySignIn({
+        headers: request.headers,
+        pathname,
+        sessionEmail: session?.user.email,
+      });
+
+      oauthCookies.push(...oauthSignIn.cookies);
+      if (oauthSignIn.user) {
+        hasSession = true;
+      }
+    }
+
+    const withOAuthCookies = (response: NextResponse) => {
+      applySetCookies(response.headers, oauthCookies);
+      return response;
+    };
+
+    if (oauthCookies.length > 0 && !pathname.startsWith("/api/")) {
+      const destination =
+        pathname.startsWith("/auth/") || pathname === "/"
+          ? DEFAULT_SIGN_IN_REDIRECT
+          : `${pathname}${request.nextUrl.search}`;
+
       return finalizeResponse(
         request,
-        NextResponse.redirect(new URL(DEFAULT_SIGN_IN_REDIRECT, request.url)),
+        withOAuthCookies(NextResponse.redirect(new URL(destination, request.url))),
         startedAt,
       );
     }
 
-    if (isPublicPath(pathname)) {
-      return finalizeResponse(request, NextResponse.next(), startedAt);
-    }
+    if (oauthCookies.length > 0) {
+      const requestHeaders = new Headers(request.headers);
+      const cookiePairs = oauthCookies.map((cookie) => cookie.split(";", 1)[0]);
+      const existingCookie = requestHeaders.get("cookie");
+      requestHeaders.set(
+        "cookie",
+        [existingCookie, ...cookiePairs].filter(Boolean).join("; "),
+      );
 
-    if (!session) {
       return finalizeResponse(
         request,
-        NextResponse.redirect(
-          new URL(await getDefaultAuthPath(), request.url),
+        withOAuthCookies(
+          NextResponse.next({
+            request: { headers: requestHeaders },
+          }),
         ),
         startedAt,
       );
     }
 
-    return finalizeResponse(request, NextResponse.next(), startedAt);
+    if (hasSession && pathname.startsWith("/auth/")) {
+      return finalizeResponse(
+        request,
+        withOAuthCookies(
+          NextResponse.redirect(new URL(DEFAULT_SIGN_IN_REDIRECT, request.url)),
+        ),
+        startedAt,
+      );
+    }
+
+    if (isPublicPath(pathname)) {
+      return finalizeResponse(
+        request,
+        withOAuthCookies(NextResponse.next()),
+        startedAt,
+      );
+    }
+
+    if (!hasSession) {
+      return finalizeResponse(
+        request,
+        withOAuthCookies(
+          NextResponse.redirect(
+            new URL(await getDefaultAuthPath(), request.url),
+          ),
+        ),
+        startedAt,
+      );
+    }
+
+    return finalizeResponse(
+      request,
+      withOAuthCookies(NextResponse.next()),
+      startedAt,
+    );
   } finally {
     getHttpActiveRequests().dec();
   }

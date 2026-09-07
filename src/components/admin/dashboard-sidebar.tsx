@@ -39,8 +39,8 @@ export function DashboardSidebar() {
     (item) => !item.adminOnly || isAdminRole(session?.user.role),
   );
 
-  const handleLogout = () => {
-    void signOutUser();
+  const handleLogout = async () => {
+    await signOutUser();
   };
 
   return (

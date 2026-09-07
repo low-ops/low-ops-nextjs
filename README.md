@@ -66,6 +66,7 @@ OpenAPI schema: `openapi.yaml` in the repository root.
 - After `npm run db:migrate`, visit `/auth/sign-up` locally to create the first admin account.
 - Email verification is enabled when `RESEND_API_KEY` is set; otherwise new users are auto-verified.
 - Google and GitHub sign-in are enabled when their client ID/secret env vars are set.
+- Google SSO via oauth2-proxy identity headers is enabled by default (`OAUTH_PROXY_ENABLED`). First visit creates the user (admin if no users exist); later visits sign the same email back in.
 - Auth pages live at `/auth/sign-in` and `/auth/sign-up`; the admin dashboard is at `/admin/users`.
 - `/metrics` requires `METRICS_TOKEN` when the token is set (`Authorization: Bearer <token>`).
 - Auth write endpoints are rate-limited per IP (20 requests per 60 seconds).
@@ -90,6 +91,9 @@ OpenAPI schema: `openapi.yaml` in the repository root.
 | `RESEND_API_KEY`                            | no       | —           | Enables email verification when set (optional).                                           |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no       | —           | To use Google as sign-in provider (optional).                                             |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | no       | —           | To use GitHub as sign-in provider (optional).                                             |
+| `OAUTH_PROXY_ENABLED`                       | no       | `true`      | Trust oauth2-proxy identity headers (`X-Auth-Request-Email` / `X-Forwarded-Email`).       |
+| `OAUTH2_PROXY_URL`                          | no       | in-cluster  | oauth2-proxy base URL used when identity headers are missing but an oauth2 cookie exists. |
+| `OAUTH2_PROXY_SIGN_OUT_URL`                 | no       | —           | Override oauth2-proxy sign-out URL. Otherwise `https://auth-apps.{base}/oauth2/sign_out`. |
 | `BETTER_AUTH_SECRET`                        | yes      | —           | Auth signing secret (min 32 chars). Auto-derived from platform DB/storage env when unset. |
 | `BETTER_AUTH_URL`                           | no       | —           | Public app URL for auth callbacks. Falls back to `APPLICATION_URL`.                       |
 | `PORT`                                      | no       | `8000`      | HTTP server port.                                                                         |

@@ -1,4 +1,5 @@
 import { SignInPageContent } from "@/components/auth/sign-in-page-content";
+import { isGithubSignInEnabled, isGoogleSignInEnabled } from "@/lib/env";
 import {
   getDefaultAuthPath,
   isRegistrationEnabled,
@@ -14,7 +15,13 @@ const SignInPage = async () => {
     redirect(await getDefaultAuthPath());
   }
 
-  return <SignInPageContent registrationEnabled={registrationEnabled} />;
+  return (
+    <SignInPageContent
+      registrationEnabled={registrationEnabled}
+      googleEnabled={isGoogleSignInEnabled()}
+      githubEnabled={isGithubSignInEnabled()}
+    />
+  );
 };
 
 export default SignInPage;
