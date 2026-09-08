@@ -283,25 +283,40 @@ export function getOAuth2ProxySignOutUrl(headerStore?: Headers) {
   return `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=${encodeURIComponent("https://accounts.google.com/Logout")}`;
 }
 
+function splitEnvList(value: string | undefined) {
+  return (value ?? "")
+    .split(/[\s,;]+/)
+    .map((part) => part.trim().replace(/^['"]+|['"]+$/g, ""))
+    .filter(Boolean);
+}
+
+function addTrustedOrigin(origins: Set<string>, value: string | undefined) {
+  const normalized = normalizeAppUrl(value);
+  if (!normalized) {
+    return;
+  }
+
+  origins.add(normalized);
+
+  try {
+    origins.add(new URL(normalized).origin);
+  } catch {
+    // ignore invalid URLs
+  }
+}
+
 export function getTrustedOrigins() {
   const origins = new Set<string>();
-  const applicationUrl = getApplicationUrl();
-  const betterAuthUrl = normalizeAppUrl(process.env.BETTER_AUTH_URL);
 
-  if (applicationUrl) {
-    origins.add(applicationUrl);
+  addTrustedOrigin(origins, getApplicationUrl());
+  addTrustedOrigin(origins, process.env.BETTER_AUTH_URL);
+
+  for (const url of splitEnvList(process.env.APPLICATION_URLS)) {
+    addTrustedOrigin(origins, url);
   }
 
-  if (betterAuthUrl) {
-    origins.add(betterAuthUrl);
-  }
-
-  const extraOrigins = process.env.TRUSTED_ORIGINS?.split(",") ?? [];
-  for (const origin of extraOrigins) {
-    const normalized = normalizeAppUrl(origin.trim());
-    if (normalized) {
-      origins.add(normalized);
-    }
+  for (const origin of splitEnvList(process.env.TRUSTED_ORIGINS)) {
+    addTrustedOrigin(origins, origin);
   }
 
   if (origins.size === 0) {
