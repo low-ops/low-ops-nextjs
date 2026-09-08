@@ -284,10 +284,60 @@ export function getOAuth2ProxySignOutUrl(headerStore?: Headers) {
 }
 
 function splitEnvList(value: string | undefined) {
-  return (value ?? "")
+  const text = value?.trim() ?? "";
+  if (!text) {
+    return [];
+  }
+
+  if (text.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => String(item).trim().replace(/^['"]+|['"]+$/g, ""))
+          .filter(Boolean);
+      }
+    } catch {
+      // fall through to comma-separated parsing
+    }
+  }
+
+  return text
     .split(/[\s,;]+/)
     .map((part) => part.trim().replace(/^['"]+|['"]+$/g, ""))
     .filter(Boolean);
+}
+
+export function getApplicationUrls() {
+  const urls: string[] = [];
+
+  const primary = getApplicationUrl();
+  if (primary) {
+    urls.push(primary);
+  }
+
+  for (const part of splitEnvList(process.env.APPLICATION_URLS)) {
+    const normalized = normalizeAppUrl(part);
+    if (normalized) {
+      urls.push(normalized);
+    }
+  }
+
+  return [...new Set(urls)];
+}
+
+export function getApplicationHosts() {
+  const hosts = new Set<string>();
+
+  for (const url of getApplicationUrls()) {
+    try {
+      hosts.add(new URL(url).host);
+    } catch {
+      // ignore invalid URLs
+    }
+  }
+
+  return [...hosts];
 }
 
 function addTrustedOrigin(origins: Set<string>, value: string | undefined) {
@@ -296,12 +346,14 @@ function addTrustedOrigin(origins: Set<string>, value: string | undefined) {
     return;
   }
 
-  origins.add(normalized);
-
   try {
-    origins.add(new URL(normalized).origin);
+    const url = new URL(normalized);
+    origins.add(url.origin);
+    origins.add(
+      `${url.protocol === "https:" ? "http" : "https"}://${url.host}`,
+    );
   } catch {
-    // ignore invalid URLs
+    origins.add(normalized);
   }
 }
 
@@ -311,8 +363,8 @@ export function getTrustedOrigins() {
   addTrustedOrigin(origins, getApplicationUrl());
   addTrustedOrigin(origins, process.env.BETTER_AUTH_URL);
 
-  for (const url of splitEnvList(process.env.APPLICATION_URLS)) {
-    addTrustedOrigin(origins, url);
+  for (const host of splitEnvList(process.env.APPLICATION_URLS)) {
+    addTrustedOrigin(origins, host);
   }
 
   for (const origin of splitEnvList(process.env.TRUSTED_ORIGINS)) {
@@ -324,6 +376,14 @@ export function getTrustedOrigins() {
   }
 
   return [...origins];
+}
+
+export function isTrustedOrigin(origin: string | null | undefined) {
+  if (!origin) {
+    return false;
+  }
+
+  return getTrustedOrigins().includes(origin);
 }
 
 export function getOtelConfig() {
@@ -461,18 +521,32 @@ export function getAuthBaseUrlConfig():
       fallback?: string;
     } {
   const applicationUrl = getApplicationUrl();
-  if (applicationUrl) {
+  const extraHosts = getApplicationHosts();
+  const allowedHosts = [
+    ...extraHosts,
+    "localhost:*",
+    "*.ci.cinaq.com",
+  ];
+
+  if (applicationUrl && extraHosts.length <= 1) {
     return applicationUrl;
   }
 
+  if (applicationUrl) {
+    return {
+      allowedHosts,
+      fallback: applicationUrl,
+    };
+  }
+
   const betterAuthUrl = normalizeAppUrl(process.env.BETTER_AUTH_URL);
-  if (betterAuthUrl) {
+  if (betterAuthUrl && extraHosts.length === 0) {
     return betterAuthUrl;
   }
 
   return {
-    allowedHosts: ["localhost:*", "*.ci.cinaq.com"],
-    fallback: DEFAULT_BASE_URL,
+    allowedHosts,
+    fallback: betterAuthUrl ?? DEFAULT_BASE_URL,
   };
 }
 

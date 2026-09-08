@@ -36,7 +36,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 export const auth = betterAuth({
   secret: authConfig.secret,
   baseURL: getAuthBaseUrlConfig(),
-  trustedOrigins: getTrustedOrigins(),
+  trustedOrigins: async () => getTrustedOrigins(),
   advanced: {
     trustedProxyHeaders: true,
   },

@@ -1,4 +1,4 @@
-import { getApplicationUrl } from "@/lib/env";
+import { isTrustedOrigin } from "@/lib/env";
 import {
   applyHeaderRecord,
   getSecurityHeaders,
@@ -20,26 +20,22 @@ export function applyNoCacheHeaders(response: NextResponse) {
 }
 
 export function applyCorsHeaders(request: NextRequest, response: NextResponse) {
-  const applicationUrl = getApplicationUrl();
+  const origin = request.headers.get("origin");
 
-  if (!applicationUrl) {
+  if (!origin || !isTrustedOrigin(origin)) {
     return response;
   }
 
-  const origin = request.headers.get("origin");
-
-  if (origin === applicationUrl) {
-    response.headers.set("Access-Control-Allow-Origin", applicationUrl);
-    response.headers.set("Access-Control-Allow-Credentials", "true");
-    response.headers.set(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    );
-    response.headers.set(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization",
-    );
-  }
+  response.headers.set("Access-Control-Allow-Origin", origin);
+  response.headers.set("Access-Control-Allow-Credentials", "true");
+  response.headers.set(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  );
+  response.headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization",
+  );
 
   return response;
 }

@@ -76,7 +76,7 @@ OpenAPI schema: `openapi.yaml` in the repository root.
 | Variable                                    | Required | Default     | Description                                                                               |
 | ------------------------------------------- | -------- | ----------- | ----------------------------------------------------------------------------------------- |
 | `APPLICATION_URL`                           | yes      | —           | Public app URL. (✅ Available in Low-Ops)                                                 |
-| `APPLICATION_URLS`                          | no       | —           | Extra comma-separated public URLs added to auth trusted origins. (✅ Available in Low-Ops) |
+| `APPLICATION_URLS`                          | no       | —           | Extra public hosts (JSON array or comma-separated). Always added to trusted origins. (✅ Available in Low-Ops) |
 | `POSTGRES_HOST`                             | yes      | —           | PostgreSQL host. (✅ Available in Low-Ops)                                                |
 | `POSTGRES_PORT`                             | no       | `5432`      | PostgreSQL port. (✅ Available in Low-Ops)                                                |
 | `POSTGRES_DATABASE`                         | yes      | —           | PostgreSQL database name. (✅ Available in Low-Ops)                                       |
