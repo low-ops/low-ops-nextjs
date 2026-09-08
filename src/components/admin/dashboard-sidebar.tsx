@@ -40,11 +40,9 @@ export function DashboardSidebar() {
   );
 
   const handleLogout = async () => {
-    const host = window.location.host;
-    const hostname = host.split(":")[0] ?? host;
-    const parts = hostname.split(".").filter(Boolean);
-    const baseDomain = parts.length >= 3 ? parts.slice(1).join(".") : hostname;
-    const googleSsoSignOutUrl = `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=https://${host}`;
+    const hostname = window.location.hostname;
+    const baseDomain = "ci.cinaq.com"; // Use your own domain here
+    const googleSsoSignOutUrl = `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=${hostname})}`;
 
     await signOutUser(googleSsoSignOutUrl);
   };

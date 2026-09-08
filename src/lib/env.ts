@@ -280,7 +280,7 @@ export function getOAuth2ProxySignOutUrl(headerStore?: Headers) {
     return undefined;
   }
 
-  return `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=${encodeURIComponent(`https://${host}`)}`;
+  return `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=${encodeURIComponent("https://accounts.google.com/Logout")}`;
 }
 
 export function getTrustedOrigins() {
