@@ -42,7 +42,7 @@ export function DashboardSidebar() {
   const handleLogout = async () => {
     const hostname = window.location.hostname;
     const baseDomain = "ci.cinaq.com"; // Use your own domain here
-    const googleSsoSignOutUrl = `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=https://${hostname})}`;
+    const googleSsoSignOutUrl = `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=https://${hostname}`;
 
     console.log("googleSsoSignOutUrl -> ", googleSsoSignOutUrl);
 
