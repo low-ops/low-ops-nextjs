@@ -234,10 +234,16 @@ export function getOAuth2ProxyUrl() {
   ).replace(/\/$/, "");
 }
 
+export function getRequestHost(headerStore: Headers) {
+  return (
+    headerStore.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+    headerStore.get("host")?.trim() ||
+    ""
+  );
+}
+
 export function getRequestHostname(headerStore: Headers) {
-  const forwarded = headerStore.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const host = forwarded || headerStore.get("host") || "";
-  return host.split(":")[0]?.trim().toLowerCase() ?? "";
+  return getRequestHost(headerStore).split(":")[0]?.trim().toLowerCase() ?? "";
 }
 
 export function getBaseDomain(hostname: string | undefined) {
@@ -258,21 +264,23 @@ export function getBaseDomain(hostname: string | undefined) {
   return normalized;
 }
 
-const GOOGLE_LOGOUT_URL = "https://accounts.google.com/Logout";
-
 export function getOAuth2ProxySignOutUrl(headerStore?: Headers) {
   const explicit = process.env.OAUTH2_PROXY_SIGN_OUT_URL?.trim();
   if (explicit) {
     return explicit;
   }
 
-  const hostname = headerStore ? getRequestHostname(headerStore) : undefined;
-  const baseDomain = getBaseDomain(hostname);
-  if (!baseDomain) {
+  if (!headerStore) {
     return undefined;
   }
 
-  return `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=${encodeURIComponent(GOOGLE_LOGOUT_URL)}`;
+  const host = getRequestHost(headerStore);
+  const baseDomain = getBaseDomain(getRequestHostname(headerStore));
+  if (!baseDomain || !host) {
+    return undefined;
+  }
+
+  return `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=${encodeURIComponent(`https://${host}`)}`;
 }
 
 export function getTrustedOrigins() {

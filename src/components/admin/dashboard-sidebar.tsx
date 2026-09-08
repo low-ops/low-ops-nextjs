@@ -40,7 +40,19 @@ export function DashboardSidebar() {
   );
 
   const handleLogout = async () => {
-    await signOutUser();
+    const result = await signOutUser();
+
+    if (result.googleSso) {
+      const host = window.location.host;
+      const hostname = host.split(":")[0] ?? host;
+      const parts = hostname.split(".").filter(Boolean);
+      const baseDomain =
+        parts.length >= 3 ? parts.slice(1).join(".") : hostname;
+      window.location.href = `https://auth-apps.${baseDomain}/oauth2/sign_out?rd=https://${host}`;
+      return;
+    }
+
+    window.location.href = result.redirectTo;
   };
 
   return (

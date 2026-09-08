@@ -1,13 +1,31 @@
 "use server";
 
+import { and, eq } from "drizzle-orm";
+
+import { db } from "@/db";
+import { account } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { getOAuth2ProxySignOutUrl } from "@/lib/env";
 import { getDefaultAuthPath } from "@/lib/founding-admins";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+
+async function signedInWithGoogle(userId: string) {
+  const [googleAccount] = await db
+    .select({ id: account.id })
+    .from(account)
+    .where(and(eq(account.userId, userId), eq(account.providerId, "google")))
+    .limit(1);
+
+  return Boolean(googleAccount);
+}
 
 export async function signOutUser() {
   const requestHeaders = await headers();
+  const session = await auth.api.getSession({
+    headers: requestHeaders,
+  });
+  const googleSso = session
+    ? await signedInWithGoogle(session.user.id)
+    : false;
 
   await auth.api.revokeSessions({
     headers: requestHeaders,
@@ -17,7 +35,8 @@ export async function signOutUser() {
     headers: requestHeaders,
   });
 
-  redirect(
-    getOAuth2ProxySignOutUrl(requestHeaders) ?? (await getDefaultAuthPath()),
-  );
+  return {
+    googleSso,
+    redirectTo: await getDefaultAuthPath(),
+  };
 }
