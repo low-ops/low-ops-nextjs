@@ -7,6 +7,7 @@ import { account } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { getDefaultAuthPath } from "@/lib/founding-admins";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 async function signedInWithGoogle(userId: string) {
   const [googleAccount] = await db
@@ -18,7 +19,20 @@ async function signedInWithGoogle(userId: string) {
   return Boolean(googleAccount);
 }
 
-export async function signOutUser() {
+function isAllowedGoogleSsoSignOutUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.hostname.startsWith("auth-apps.") &&
+      parsed.pathname === "/oauth2/sign_out"
+    );
+  } catch {
+    return false;
+  }
+}
+
+export async function signOutUser(googleSsoSignOutUrl?: string) {
   const requestHeaders = await headers();
   const session = await auth.api.getSession({
     headers: requestHeaders,
@@ -35,8 +49,13 @@ export async function signOutUser() {
     headers: requestHeaders,
   });
 
-  return {
-    googleSso,
-    redirectTo: await getDefaultAuthPath(),
-  };
+  if (
+    googleSso &&
+    googleSsoSignOutUrl &&
+    isAllowedGoogleSsoSignOutUrl(googleSsoSignOutUrl)
+  ) {
+    redirect(googleSsoSignOutUrl);
+  }
+
+  redirect(await getDefaultAuthPath());
 }
