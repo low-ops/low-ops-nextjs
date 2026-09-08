@@ -4,9 +4,12 @@ import { sql } from "drizzle-orm";
 
 export const FOUNDING_ADMIN_COUNT = 1;
 
-type AuthHookContext = {
-  path?: string;
-} | null | undefined;
+type AuthHookContext =
+  | {
+      path?: string;
+    }
+  | null
+  | undefined;
 
 export function isSignUpUserCreation(ctx: AuthHookContext): boolean {
   const path = ctx?.path;
