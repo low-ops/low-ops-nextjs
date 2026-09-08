@@ -19,27 +19,12 @@ async function signedInWithGoogle(userId: string) {
   return Boolean(googleAccount);
 }
 
-function isAllowedGoogleSsoSignOutUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    return (
-      parsed.protocol === "https:" &&
-      parsed.hostname.startsWith("auth-apps.") &&
-      parsed.pathname === "/oauth2/sign_out"
-    );
-  } catch {
-    return false;
-  }
-}
-
 export async function signOutUser(googleSsoSignOutUrl?: string) {
   const requestHeaders = await headers();
   const session = await auth.api.getSession({
     headers: requestHeaders,
   });
-  const googleSso = session
-    ? await signedInWithGoogle(session.user.id)
-    : false;
+  const googleSso = session ? await signedInWithGoogle(session.user.id) : false;
 
   await auth.api.revokeSessions({
     headers: requestHeaders,
@@ -49,11 +34,7 @@ export async function signOutUser(googleSsoSignOutUrl?: string) {
     headers: requestHeaders,
   });
 
-  if (
-    googleSso &&
-    googleSsoSignOutUrl &&
-    isAllowedGoogleSsoSignOutUrl(googleSsoSignOutUrl)
-  ) {
+  if (googleSso && googleSsoSignOutUrl) {
     redirect(googleSsoSignOutUrl);
   }
 
