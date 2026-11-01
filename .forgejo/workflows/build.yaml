@@ -1,0 +1,314 @@
+# Next.js build. Tekton pipeline: nextjs-app-build.
+# The build job pushes harbor/<REGISTRY>/apps-<repo>/app:<branch>-<shortsha>.
+# Deploy uses that image. unit-test and lint can be deleted.
+# Org variables: REGISTRY, TOOLKIT_IMAGE, RABBITMQ_HOST, MINIO_URL, CORE_BUCKET
+# Org secrets: HARBOR_USERNAME, HARBOR_PASSWORD, RABBITMQ_USERNAME, RABBITMQ_PASSWORD, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
+# scan can be deleted. Remove it from notify.needs as well.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: lowops
+    container:
+      image: ${{ vars.TOOLKIT_IMAGE }}
+      volumes:
+        - /srv/shared:/srv/shared
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      tag: ${{ steps.image.outputs.tag }}
+      correlation: ${{ steps.open.outputs.correlation }}
+    steps:
+      - name: Register build
+        id: open
+        env:
+          APP: ${{ github.event.repository.name }}
+          COMMIT: ${{ github.sha }}
+          REQUESTER: user/${{ github.actor }}
+          RUN_ID: ${{ github.run_id }}
+          RABBITMQ_HOST: ${{ vars.RABBITMQ_HOST }}
+          RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+        run: |
+          set -eu
+          python - << 'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          correlation = subprocess.check_output(["cat", "/proc/sys/kernel/random/uuid"], text=True).strip()
+          share = Path("/srv/shared", correlation)
+          share.mkdir(parents=True, exist_ok=True)
+          share.chmod(0o777)
+          run_id = os.environ.get("RUN_ID", "")
+          if run_id:
+              Path("/srv/shared", f"run-{run_id}").write_text(correlation)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"correlation={correlation}\n")
+          message = {
+              "appName": os.environ["APP"],
+              "envName": "",
+              "correlationId": correlation,
+              "requester": os.environ["REQUESTER"],
+              "status": "Succeeded",
+              "details": {
+                  "buildLogs": "",
+                  "mxLintResults": "",
+                  "mxUnitTestingResults": "",
+                  "mxAppMdaMetadata": "",
+                  "mxAppVulnerabilities": "",
+                  "commitId": os.environ["COMMIT"],
+                  "backupId": "",
+                  "backupDbLocation": "",
+                  "backupStorageLocation": "",
+                  "backupComment": "",
+                  "actionsetName": "",
+                  "packageId": "",
+              },
+          }
+          subprocess.check_call([
+              "python", "/usr/local/bin/push-pipeline-events.py",
+              "--host", os.environ["RABBITMQ_HOST"],
+              "--port", "5672",
+              "--username", os.environ["RABBITMQ_USERNAME"],
+              "--password", os.environ["RABBITMQ_PASSWORD"],
+              "--exchange", "lowops-exchange",
+              "--vhost", "/lowops-vhost",
+              "--routing-key", "controller.app.build.submit",
+              "--message", json.dumps(message),
+          ])
+          PY
+      - name: Checkout
+        env:
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          base="${SERVER%/}"
+          case "$base" in
+            https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
+            http://*) origin="http://oauth2:${TOKEN}@${base#http://}" ;;
+            *) origin="http://oauth2:${TOKEN}@${base}" ;;
+          esac
+          git init .
+          git remote add origin "${origin}/${REPO}.git"
+          git fetch --depth 1 origin "$SHA"
+          git checkout FETCH_HEAD
+
+      - name: Build and push
+        id: image
+        env:
+          REGISTRY: ${{ vars.REGISTRY }}
+          APP: ${{ github.event.repository.name }}
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+          DOCKER_CONFIG: /kaniko/.docker
+          CORRELATION: ${{ steps.open.outputs.correlation }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          short=$(printf '%s' "${{ github.sha }}" | cut -c1-7)
+          tag=$(printf '%s' "${{ github.ref_name }}-${short}" | sed 's/%20/_/g' | tr -cd '[:alnum:]_.-' | sed 's/^[.-]*//' | cut -c -128)
+          image="${REGISTRY}/apps-${APP}/app:${tag}"
+          share="/srv/shared/${CORRELATION}"
+          mkdir -p "$share"
+          chmod 777 "$share"
+          printf 'image=%s\ncommit=%s\n' "$image" "$SHA" > "$share/build-log.txt"
+          mkdir -p /kaniko/.docker
+          auth=$(printf '%s:%s' "$HARBOR_USERNAME" "$HARBOR_PASSWORD" | base64 | tr -d '\n')
+          printf '{"auths":{"https://%s":{"auth":"%s"},"%s":{"auth":"%s"}}}\n' "$REGISTRY" "$auth" "$REGISTRY" "$auth" > /kaniko/.docker/config.json
+          /kaniko/executor \
+            --context "$PWD" \
+            --dockerfile "$PWD/Dockerfile" \
+            --destination "$image" \
+            --ignore-path=/var/mail \
+            --ignore-path=/var/spool/mail \
+            --ignore-path=//product_uuid \
+            --ignore-path=/srv/shared \
+            --cleanup
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+  scan:
+    needs: build
+    runs-on: lowops
+    continue-on-error: true
+    container:
+      image: aquasec/trivy:0.63.0
+      volumes:
+        - /srv/shared:/srv/shared
+    steps:
+      - name: Trivy
+        env:
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+          CORRELATION: ${{ needs.build.outputs.correlation }}
+        run: |
+          set -eu
+          set +e
+          trivy image --username "$HARBOR_USERNAME" --password "$HARBOR_PASSWORD" --format json --output scan-result.json --timeout 15m "${{ needs.build.outputs.image }}"
+          status=$?
+          set -e
+          if [ -f scan-result.json ]; then
+            mkdir -p "/srv/shared/${CORRELATION}"
+            cp scan-result.json "/srv/shared/${CORRELATION}/scan-result.json"
+          fi
+          exit "$status"
+
+  unit-test:
+    runs-on: lowops
+    continue-on-error: true
+    container:
+      image: node:22-alpine
+    steps:
+      - name: Checkout
+        env:
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          base="${SERVER%/}"
+          case "$base" in
+            https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
+            http://*) origin="http://oauth2:${TOKEN}@${base#http://}" ;;
+            *) origin="http://oauth2:${TOKEN}@${base}" ;;
+          esac
+          git init .
+          git remote add origin "${origin}/${REPO}.git"
+          git fetch --depth 1 origin "$SHA"
+          git checkout FETCH_HEAD
+      - name: npm test
+        run: |
+          set -eu
+          export NODE_ENV=development
+          mkdir -p reports
+          npm i
+          npm run test
+
+  lint:
+    runs-on: lowops
+    continue-on-error: true
+    container:
+      image: node:20-alpine
+    steps:
+      - name: Checkout
+        env:
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          base="${SERVER%/}"
+          case "$base" in
+            https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
+            http://*) origin="http://oauth2:${TOKEN}@${base#http://}" ;;
+            *) origin="http://oauth2:${TOKEN}@${base}" ;;
+          esac
+          git init .
+          git remote add origin "${origin}/${REPO}.git"
+          git fetch --depth 1 origin "$SHA"
+          git checkout FETCH_HEAD
+      - name: npm run lint
+        run: |
+          set -eu
+          export NODE_ENV=development
+          npm i
+          npm run lint
+
+  notify:
+    needs: [build, scan]
+    if: always()
+    runs-on: lowops
+    container:
+      image: ${{ vars.TOOLKIT_IMAGE }}
+      volumes:
+        - /srv/shared:/srv/shared
+    steps:
+      - name: Publish build result
+        env:
+          APP: ${{ github.event.repository.name }}
+          COMMIT: ${{ github.sha }}
+          REQUESTER: user/${{ github.actor }}
+          CORRELATION: ${{ needs.build.outputs.correlation }}
+          RUN_ID: ${{ github.run_id }}
+          TAG: ${{ needs.build.outputs.tag }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          RABBITMQ_HOST: ${{ vars.RABBITMQ_HOST }}
+          RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+          MINIO_URL: ${{ vars.MINIO_URL }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          CORE_BUCKET: ${{ vars.CORE_BUCKET }}
+        run: |
+          set -eu
+          python - << 'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          correlation = os.environ["CORRELATION"]
+          tag = os.environ["TAG"]
+          app = os.environ["APP"]
+          bucket = os.environ["CORE_BUCKET"]
+          if not correlation:
+              marker = Path("/srv/shared") / f"run-{os.environ.get('RUN_ID', '')}"
+              if marker.is_file():
+                  correlation = marker.read_text().strip()
+          if not correlation:
+              raise SystemExit("build did not register a correlation id")
+          share = Path("/srv/shared") / correlation
+          status = "Succeeded" if os.environ["BUILD_RESULT"] == "success" else "Failed"
+          subprocess.check_call([
+              "mc", "alias", "set", "minio", os.environ["MINIO_URL"],
+              os.environ["MINIO_ACCESS_KEY"], os.environ["MINIO_SECRET_KEY"],
+          ])
+
+          def upload(name, key):
+              source = share / name
+              if not source.is_file():
+                  return ""
+              destination = f"{bucket}/{key}"
+              subprocess.check_call(["mc", "cp", str(source), f"minio/{destination}"])
+              return destination
+
+          details = {
+              "buildLogs": upload("build-log.txt", f"taskrun-logs/{app}/{correlation}.txt"),
+              "mxLintResults": "",
+              "mxUnitTestingResults": "",
+              "mxAppMdaMetadata": "",
+              "mxAppVulnerabilities": upload("scan-result.json", f"oci-scan-results/{app}/{tag}.json") if tag else "",
+              "commitId": os.environ["COMMIT"],
+              "backupId": "",
+              "backupDbLocation": "",
+              "backupStorageLocation": "",
+              "backupComment": "",
+              "actionsetName": "",
+              "packageId": tag,
+          }
+          message = {
+              "appName": app,
+              "envName": "",
+              "correlationId": correlation,
+              "requester": os.environ["REQUESTER"],
+              "status": status,
+              "details": details,
+          }
+          subprocess.check_call([
+              "python", "/usr/local/bin/push-pipeline-events.py",
+              "--host", os.environ["RABBITMQ_HOST"],
+              "--port", "5672",
+              "--username", os.environ["RABBITMQ_USERNAME"],
+              "--password", os.environ["RABBITMQ_PASSWORD"],
+              "--exchange", "lowops-exchange",
+              "--vhost", "/lowops-vhost",
+              "--routing-key", "controller.app.build.complete",
+              "--message", json.dumps(message),
+          ])
+          PY
