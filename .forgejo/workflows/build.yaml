@@ -172,6 +172,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -eu
+          apk add --no-cache git
           base="${SERVER%/}"
           case "$base" in
             https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
@@ -204,6 +205,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -eu
+          apk add --no-cache git
           base="${SERVER%/}"
           case "$base" in
             https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
