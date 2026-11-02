@@ -1,6 +1,6 @@
 # Next.js build. Tekton pipeline: nextjs-app-build.
 # The build job pushes harbor/<REGISTRY>/apps-<repo>/app:<branch>-<shortsha>.
-# Deploy uses that image. unit-test and lint can be deleted. Remove unit-test from notify.needs as well.
+# Deploy uses that image. unit-test and lint can be deleted. Remove them from notify.needs as well.
 # Org variables: REGISTRY, TOOLKIT_IMAGE, RABBITMQ_HOST, MINIO_URL, CORE_BUCKET
 # Org secrets: HARBOR_USERNAME, HARBOR_PASSWORD, RABBITMQ_USERNAME, RABBITMQ_PASSWORD, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
 # scan can be deleted. Remove it from notify.needs as well.
@@ -203,11 +203,12 @@ jobs:
           fi
           if [ ! -f reports/unit-test.xml ]; then
             echo "reports/unit-test.xml was not produced"
-            exit 0
+            exit "$status"
           fi
           apk add --no-cache python3
           cat > /tmp/nextjs-unit-test-formatter.py << 'ENDSCRIPT'
           #!/usr/bin/env python3
+          import html
           import xml.etree.ElementTree as ET
           import json
           import sys
@@ -232,35 +233,41 @@ jobs:
               return content[:200] + "..." if len(content) > 200 else content
 
           def parse_testcase(testcase_elem):
+              classname = testcase_elem.get("classname", "")
+              if classname.endswith((".ts", ".tsx", ".js", ".jsx")):
+                  filename = classname
+              else:
+                  filename = classname.replace(".", "/") + ".ts" if classname else ""
               testcase = {
-                  "name": testcase_elem.get("name", ""),
-                  "location": testcase_elem.get("classname", ""),
+                  "name": html.unescape(testcase_elem.get("name", "")),
+                  "location": filename or classname,
                   "time": float(testcase_elem.get("time", 0)),
-                  "status": "passed",
+                  "failure": None,
+                  "skipped": None,
               }
               failure_elem = testcase_elem.find("failure")
               if failure_elem is not None:
-                  testcase["status"] = "failed"
                   full_content = failure_elem.text.strip() if failure_elem.text else ""
+                  message = failure_elem.get("message", "") or extract_failure_summary(full_content)
                   testcase["failure"] = {
-                      "message": failure_elem.get("message", ""),
-                      "type": failure_elem.get("type", ""),
-                      "content": extract_failure_summary(full_content),
+                      "message": message,
+                      "type": failure_elem.get("type", "") or "AssertionError",
+                      "content": full_content[-2000:] if full_content else message,
                   }
               error_elem = testcase_elem.find("error")
               if error_elem is not None:
-                  testcase["status"] = "error"
                   full_content = error_elem.text.strip() if error_elem.text else ""
-                  testcase["error"] = {
-                      "message": error_elem.get("message", ""),
-                      "type": error_elem.get("type", ""),
-                      "content": extract_failure_summary(full_content),
+                  message = error_elem.get("message", "") or extract_failure_summary(full_content)
+                  testcase["failure"] = {
+                      "message": message,
+                      "type": error_elem.get("type", "") or "Error",
+                      "content": full_content[-2000:] if full_content else message,
                   }
               skipped_elem = testcase_elem.find("skipped")
               if skipped_elem is not None:
-                  testcase["status"] = "skipped"
                   testcase["skipped"] = {
-                      "message": skipped_elem.get("message", ""),
+                      "message": skipped_elem.get("message", "") or "Test skipped",
+                      "type": "skip",
                       "content": skipped_elem.text.strip() if skipped_elem.text else "",
                   }
               return testcase
@@ -283,73 +290,28 @@ jobs:
           def parse_junit_xml(xml_file):
               tree = ET.parse(xml_file)
               root = tree.getroot()
+              testsuites = []
               if root.tag == "testsuites":
-                  result = {
-                      "name": root.get("name", ""),
-                      "tests": int(root.get("tests", 0)),
-                      "failures": int(root.get("failures", 0)),
-                      "errors": int(root.get("errors", 0)),
-                      "time": float(root.get("time", 0)),
-                      "testsuites": [],
-                  }
                   for testsuite_elem in root.findall("testsuite"):
-                      result["testsuites"].append(parse_testsuite(testsuite_elem))
-                  return result
-              if root.tag == "testsuite":
-                  return parse_testsuite(root)
-              raise ValueError(f"Unexpected root element: {root.tag}")
-
-          def calculate_summary_stats(data):
-              total_tests = 0
-              total_failures = 0
-              total_errors = 0
-              total_skipped = 0
-              total_time = 0.0
-              if "testsuites" in data:
-                  for testsuite in data["testsuites"]:
-                      total_tests += testsuite["tests"]
-                      total_failures += testsuite["failures"]
-                      total_errors += testsuite["errors"]
-                      total_skipped += testsuite["skipped"]
-                      total_time += testsuite["time"]
+                      testsuites.append(parse_testsuite(testsuite_elem))
+              elif root.tag == "testsuite":
+                  testsuites.append(parse_testsuite(root))
               else:
-                  total_tests = data["tests"]
-                  total_failures = data["failures"]
-                  total_errors = data["errors"]
-                  total_skipped = data["skipped"]
-                  total_time = data["time"]
-              passed = total_tests - total_failures - total_errors - total_skipped
-              return {
-                  "total_tests": total_tests,
-                  "passed": passed,
-                  "failed": total_failures,
-                  "errors": total_errors,
-                  "skipped": total_skipped,
-                  "total_time": total_time,
-                  "success_rate": (passed / total_tests * 100) if total_tests > 0 else 0,
-              }
+                  raise ValueError(f"Unexpected root element: {root.tag}")
+              return {"testsuites": testsuites}
 
           def main():
               parser = argparse.ArgumentParser(description="Convert JUnit XML to JSON")
               parser.add_argument("xml_file")
-              parser.add_argument("--no-summary", action="store_true")
-              parser.add_argument("--keep-xml", action="store_true")
               args = parser.parse_args()
-              if not args.xml_file.endswith(".xml"):
-                  print(f"Error: Input file '{args.xml_file}' must have .xml extension")
-                  sys.exit(1)
               if not os.path.exists(args.xml_file):
                   print(f"Error: File '{args.xml_file}' not found")
                   sys.exit(1)
               data = parse_junit_xml(args.xml_file)
-              if not args.no_summary:
-                  data["summary"] = calculate_summary_stats(data)
               json_file = f"{os.path.splitext(args.xml_file)[0]}.json"
               with open(json_file, "w", encoding="utf-8") as handle:
                   handle.write(json.dumps(data, indent=2))
               print(f"Converted '{args.xml_file}' to '{json_file}'")
-              if not args.keep_xml:
-                  os.remove(args.xml_file)
 
           if __name__ == "__main__":
               main()
@@ -359,12 +321,16 @@ jobs:
             mkdir -p "/srv/shared/${CORRELATION}"
             cp reports/unit-test.json "/srv/shared/${CORRELATION}/unit-test.json"
           fi
+          exit "$status"
 
   lint:
+    needs: build
     runs-on: lowops
     continue-on-error: true
     container:
-      image: node:20-alpine
+      image: node:22-alpine
+      volumes:
+        - /srv/shared:/srv/shared
     steps:
       - name: Checkout
         env:
@@ -385,15 +351,85 @@ jobs:
           git remote add origin "${origin}/${REPO}.git"
           git fetch --depth 1 origin "$SHA"
           git checkout FETCH_HEAD
-      - name: npm run lint
+      - name: ESLint
+        env:
+          CORRELATION: ${{ needs.build.outputs.correlation }}
         run: |
           set -eu
           export NODE_ENV=development
           npm i
-          npm run lint
+          set +e
+          npx eslint . --format json --output-file eslint.json
+          status=$?
+          set -e
+          apk add --no-cache python3
+          python3 - << 'PY'
+          import json
+          from pathlib import Path
+
+          raw_files = []
+          source = Path("eslint.json")
+          if source.is_file() and source.stat().st_size:
+              loaded = json.loads(source.read_text())
+              if isinstance(loaded, list):
+                  raw_files = loaded
+
+          testsuites = []
+          rules = []
+          for file_result in raw_files:
+              filename = file_result.get("filePath") or "unknown"
+              for item in file_result.get("messages") or []:
+                  code = item.get("ruleId") or "eslint"
+                  message = item.get("message") or ""
+                  row = item.get("line") or 0
+                  column = item.get("column") or 0
+                  severity_num = item.get("severity") or 1
+                  if severity_num >= 2:
+                      severity = "HIGH"
+                  elif severity_num == 1:
+                      severity = "MEDIUM"
+                  else:
+                      severity = "LOW"
+                  case_name = f"{code}:{filename}:{row}:{column}"
+                  detail = message
+                  testsuites.append({
+                      "name": case_name,
+                      "tests": 1,
+                      "failures": 1,
+                      "skipped": 0,
+                      "time": 0,
+                      "testcases": [{
+                          "name": case_name,
+                          "document": filename,
+                          "location": filename,
+                          "time": 0,
+                          "failure": {"message": detail, "type": code, "content": detail},
+                          "skipped": None,
+                      }],
+                  })
+                  rules.append({
+                      "title": code,
+                      "description": detail,
+                      "category": "General",
+                      "severity": severity,
+                      "ruleNumber": code,
+                      "remediation": "",
+                      "ruleName": case_name,
+                      "path": filename,
+                      "skipReason": "",
+                      "pattern": "",
+                      "packageName": code,
+                  })
+          Path("report.json").write_text(json.dumps({"testsuites": testsuites, "rules": rules}, indent=2))
+          PY
+          if [ -n "$CORRELATION" ] && [ -f report.json ]; then
+            mkdir -p "/srv/shared/${CORRELATION}"
+            cp report.json "/srv/shared/${CORRELATION}/report.json"
+          fi
+          exit "$status"
 
   notify:
-    needs: [build, scan, unit-test]
+    needs: [build, scan, unit-test, lint]
     if: always()
     runs-on: lowops
     container:
@@ -451,7 +487,7 @@ jobs:
 
           details = {
               "buildLogs": upload("build-log.txt", f"taskrun-logs/{app}/{correlation}.txt"),
-              "mxLintResults": "",
+              "mxLintResults": upload("report.json", f"linting-results/{app}/{tag}.json") if tag else "",
               "mxUnitTestingResults": upload("unit-test.json", f"unit-testing-results/{app}/{tag}.json") if tag else "",
               "mxAppMdaMetadata": "",
               "mxAppVulnerabilities": upload("scan-result.json", f"oci-scan-results/{app}/{tag}.json") if tag else "",

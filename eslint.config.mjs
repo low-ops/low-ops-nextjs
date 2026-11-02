@@ -10,6 +10,12 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
+  {
+    files: ["src/lib/lowops-demo-lint.ts"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "error",
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",
