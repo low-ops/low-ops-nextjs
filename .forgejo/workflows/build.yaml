@@ -1,6 +1,6 @@
 # Next.js build. Tekton pipeline: nextjs-app-build.
 # The build job pushes harbor/<REGISTRY>/apps-<repo>/app:<branch>-<shortsha>.
-# Deploy uses that image. unit-test and lint can be deleted.
+# Deploy uses that image. unit-test and lint can be deleted. Remove unit-test from notify.needs as well.
 # Org variables: REGISTRY, TOOLKIT_IMAGE, RABBITMQ_HOST, MINIO_URL, CORE_BUCKET
 # Org secrets: HARBOR_USERNAME, HARBOR_PASSWORD, RABBITMQ_USERNAME, RABBITMQ_PASSWORD, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
 # scan can be deleted. Remove it from notify.needs as well.
@@ -159,10 +159,13 @@ jobs:
           exit "$status"
 
   unit-test:
+    needs: build
     runs-on: lowops
     continue-on-error: true
     container:
       image: node:22-alpine
+      volumes:
+        - /srv/shared:/srv/shared
     steps:
       - name: Checkout
         env:
@@ -184,12 +187,178 @@ jobs:
           git fetch --depth 1 origin "$SHA"
           git checkout FETCH_HEAD
       - name: npm test
+        env:
+          CORRELATION: ${{ needs.build.outputs.correlation }}
         run: |
           set -eu
           export NODE_ENV=development
           mkdir -p reports
           npm i
+          set +e
           npm run test
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "npm run test exited ${status}"
+          fi
+          if [ ! -f reports/unit-test.xml ]; then
+            echo "reports/unit-test.xml was not produced"
+            exit 0
+          fi
+          apk add --no-cache python3
+          cat > /tmp/nextjs-unit-test-formatter.py << 'ENDSCRIPT'
+          #!/usr/bin/env python3
+          import xml.etree.ElementTree as ET
+          import json
+          import sys
+          import os
+          import argparse
+
+          def extract_failure_summary(content):
+              if not content:
+                  return ""
+              lines = content.split("\n")
+              summary_lines = []
+              for line in lines[:10]:
+                  line = line.strip()
+                  if line and not line.startswith("    at ") and not line.startswith("Error:"):
+                      if not any(skip in line.lower() for skip in ["stack trace", "at ", "node_modules"]):
+                          summary_lines.append(line)
+              if summary_lines:
+                  return "\n".join(summary_lines[:3])
+              for line in lines:
+                  if line.strip():
+                      return line.strip()
+              return content[:200] + "..." if len(content) > 200 else content
+
+          def parse_testcase(testcase_elem):
+              testcase = {
+                  "name": testcase_elem.get("name", ""),
+                  "location": testcase_elem.get("classname", ""),
+                  "time": float(testcase_elem.get("time", 0)),
+                  "status": "passed",
+              }
+              failure_elem = testcase_elem.find("failure")
+              if failure_elem is not None:
+                  testcase["status"] = "failed"
+                  full_content = failure_elem.text.strip() if failure_elem.text else ""
+                  testcase["failure"] = {
+                      "message": failure_elem.get("message", ""),
+                      "type": failure_elem.get("type", ""),
+                      "content": extract_failure_summary(full_content),
+                  }
+              error_elem = testcase_elem.find("error")
+              if error_elem is not None:
+                  testcase["status"] = "error"
+                  full_content = error_elem.text.strip() if error_elem.text else ""
+                  testcase["error"] = {
+                      "message": error_elem.get("message", ""),
+                      "type": error_elem.get("type", ""),
+                      "content": extract_failure_summary(full_content),
+                  }
+              skipped_elem = testcase_elem.find("skipped")
+              if skipped_elem is not None:
+                  testcase["status"] = "skipped"
+                  testcase["skipped"] = {
+                      "message": skipped_elem.get("message", ""),
+                      "content": skipped_elem.text.strip() if skipped_elem.text else "",
+                  }
+              return testcase
+
+          def parse_testsuite(testsuite_elem):
+              testsuite = {
+                  "name": testsuite_elem.get("name", ""),
+                  "tests": int(testsuite_elem.get("tests", 0)),
+                  "failures": int(testsuite_elem.get("failures", 0)),
+                  "errors": int(testsuite_elem.get("errors", 0)),
+                  "skipped": int(testsuite_elem.get("skipped", 0)),
+                  "time": float(testsuite_elem.get("time", 0)),
+                  "timestamp": testsuite_elem.get("timestamp", ""),
+                  "testcases": [],
+              }
+              for testcase_elem in testsuite_elem.findall("testcase"):
+                  testsuite["testcases"].append(parse_testcase(testcase_elem))
+              return testsuite
+
+          def parse_junit_xml(xml_file):
+              tree = ET.parse(xml_file)
+              root = tree.getroot()
+              if root.tag == "testsuites":
+                  result = {
+                      "name": root.get("name", ""),
+                      "tests": int(root.get("tests", 0)),
+                      "failures": int(root.get("failures", 0)),
+                      "errors": int(root.get("errors", 0)),
+                      "time": float(root.get("time", 0)),
+                      "testsuites": [],
+                  }
+                  for testsuite_elem in root.findall("testsuite"):
+                      result["testsuites"].append(parse_testsuite(testsuite_elem))
+                  return result
+              if root.tag == "testsuite":
+                  return parse_testsuite(root)
+              raise ValueError(f"Unexpected root element: {root.tag}")
+
+          def calculate_summary_stats(data):
+              total_tests = 0
+              total_failures = 0
+              total_errors = 0
+              total_skipped = 0
+              total_time = 0.0
+              if "testsuites" in data:
+                  for testsuite in data["testsuites"]:
+                      total_tests += testsuite["tests"]
+                      total_failures += testsuite["failures"]
+                      total_errors += testsuite["errors"]
+                      total_skipped += testsuite["skipped"]
+                      total_time += testsuite["time"]
+              else:
+                  total_tests = data["tests"]
+                  total_failures = data["failures"]
+                  total_errors = data["errors"]
+                  total_skipped = data["skipped"]
+                  total_time = data["time"]
+              passed = total_tests - total_failures - total_errors - total_skipped
+              return {
+                  "total_tests": total_tests,
+                  "passed": passed,
+                  "failed": total_failures,
+                  "errors": total_errors,
+                  "skipped": total_skipped,
+                  "total_time": total_time,
+                  "success_rate": (passed / total_tests * 100) if total_tests > 0 else 0,
+              }
+
+          def main():
+              parser = argparse.ArgumentParser(description="Convert JUnit XML to JSON")
+              parser.add_argument("xml_file")
+              parser.add_argument("--no-summary", action="store_true")
+              parser.add_argument("--keep-xml", action="store_true")
+              args = parser.parse_args()
+              if not args.xml_file.endswith(".xml"):
+                  print(f"Error: Input file '{args.xml_file}' must have .xml extension")
+                  sys.exit(1)
+              if not os.path.exists(args.xml_file):
+                  print(f"Error: File '{args.xml_file}' not found")
+                  sys.exit(1)
+              data = parse_junit_xml(args.xml_file)
+              if not args.no_summary:
+                  data["summary"] = calculate_summary_stats(data)
+              json_file = f"{os.path.splitext(args.xml_file)[0]}.json"
+              with open(json_file, "w", encoding="utf-8") as handle:
+                  handle.write(json.dumps(data, indent=2))
+              print(f"Converted '{args.xml_file}' to '{json_file}'")
+              if not args.keep_xml:
+                  os.remove(args.xml_file)
+
+          if __name__ == "__main__":
+              main()
+          ENDSCRIPT
+          python3 /tmp/nextjs-unit-test-formatter.py reports/unit-test.xml
+          if [ -n "$CORRELATION" ] && [ -f reports/unit-test.json ]; then
+            mkdir -p "/srv/shared/${CORRELATION}"
+            cp reports/unit-test.json "/srv/shared/${CORRELATION}/unit-test.json"
+          fi
 
   lint:
     runs-on: lowops
@@ -224,7 +393,7 @@ jobs:
           npm run lint
 
   notify:
-    needs: [build, scan]
+    needs: [build, scan, unit-test]
     if: always()
     runs-on: lowops
     container:
@@ -283,7 +452,7 @@ jobs:
           details = {
               "buildLogs": upload("build-log.txt", f"taskrun-logs/{app}/{correlation}.txt"),
               "mxLintResults": "",
-              "mxUnitTestingResults": "",
+              "mxUnitTestingResults": upload("unit-test.json", f"unit-testing-results/{app}/{tag}.json") if tag else "",
               "mxAppMdaMetadata": "",
               "mxAppVulnerabilities": upload("scan-result.json", f"oci-scan-results/{app}/{tag}.json") if tag else "",
               "commitId": os.environ["COMMIT"],
