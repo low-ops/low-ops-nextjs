@@ -1,12 +1,31 @@
 # Next.js build. Tekton pipeline: nextjs-app-build.
-# The build job pushes harbor/<REGISTRY>/apps-<repo>/app:<branch>-<shortsha>.
-# Deploy uses that image. unit-test and lint can be deleted. Remove them from notify.needs as well.
+# CI scripts live in .forgejo/scripts/
 # Org variables: REGISTRY, TOOLKIT_IMAGE, RABBITMQ_HOST, MINIO_URL, CORE_BUCKET
 # Org secrets: HARBOR_USERNAME, HARBOR_PASSWORD, RABBITMQ_USERNAME, RABBITMQ_PASSWORD, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
-# scan can be deleted. Remove it from notify.needs as well.
 on:
   push:
     branches: [main]
+
+x-repo-checkout: &repo-checkout |
+  set -eu
+  if [ -n "${APT_PACKAGES:-}" ]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends ${APT_PACKAGES}
+  fi
+  if [ -n "${APK_PACKAGES:-}" ]; then
+    apk add --no-cache ${APK_PACKAGES}
+  fi
+  base="${SERVER%/}"
+  case "$base" in
+    https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
+    http://*) origin="http://oauth2:${TOKEN}@${base#http://}" ;;
+    *) origin="http://oauth2:${TOKEN}@${base}" ;;
+  esac
+  git init .
+  git remote add origin "${origin}/${REPO}.git"
+  git fetch --depth 1 origin "$SHA"
+  git checkout FETCH_HEAD
 
 jobs:
   build:
@@ -20,6 +39,14 @@ jobs:
       tag: ${{ steps.image.outputs.tag }}
       correlation: ${{ steps.open.outputs.correlation }}
     steps:
+      - name: Checkout
+        env:
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: *repo-checkout
+
       - name: Register build
         id: open
         env:
@@ -30,107 +57,20 @@ jobs:
           RABBITMQ_HOST: ${{ vars.RABBITMQ_HOST }}
           RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
           RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
-        run: |
-          set -eu
-          python - << 'PY'
-          import json
-          import os
-          import subprocess
-          from pathlib import Path
-          correlation = subprocess.check_output(["cat", "/proc/sys/kernel/random/uuid"], text=True).strip()
-          share = Path("/srv/shared", correlation)
-          share.mkdir(parents=True, exist_ok=True)
-          share.chmod(0o777)
-          run_id = os.environ.get("RUN_ID", "")
-          if run_id:
-              Path("/srv/shared", f"run-{run_id}").write_text(correlation)
-          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"correlation={correlation}\n")
-          message = {
-              "appName": os.environ["APP"],
-              "envName": "",
-              "correlationId": correlation,
-              "requester": os.environ["REQUESTER"],
-              "status": "Succeeded",
-              "details": {
-                  "buildLogs": "",
-                  "mxLintResults": "",
-                  "mxUnitTestingResults": "",
-                  "mxAppMdaMetadata": "",
-                  "mxAppVulnerabilities": "",
-                  "commitId": os.environ["COMMIT"],
-                  "backupId": "",
-                  "backupDbLocation": "",
-                  "backupStorageLocation": "",
-                  "backupComment": "",
-                  "actionsetName": "",
-                  "packageId": "",
-              },
-          }
-          subprocess.check_call([
-              "python", "/usr/local/bin/push-pipeline-events.py",
-              "--host", os.environ["RABBITMQ_HOST"],
-              "--port", "5672",
-              "--username", os.environ["RABBITMQ_USERNAME"],
-              "--password", os.environ["RABBITMQ_PASSWORD"],
-              "--exchange", "lowops-exchange",
-              "--vhost", "/lowops-vhost",
-              "--routing-key", "controller.app.build.submit",
-              "--message", json.dumps(message),
-          ])
-          PY
-      - name: Checkout
-        env:
-          SERVER: ${{ github.server_url }}
-          REPO: ${{ github.repository }}
-          TOKEN: ${{ github.token }}
-          SHA: ${{ github.sha }}
-        run: |
-          set -eu
-          base="${SERVER%/}"
-          case "$base" in
-            https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
-            http://*) origin="http://oauth2:${TOKEN}@${base#http://}" ;;
-            *) origin="http://oauth2:${TOKEN}@${base}" ;;
-          esac
-          git init .
-          git remote add origin "${origin}/${REPO}.git"
-          git fetch --depth 1 origin "$SHA"
-          git checkout FETCH_HEAD
+        run: python .forgejo/scripts/register_build.py
 
       - name: Build and push
         id: image
         env:
           REGISTRY: ${{ vars.REGISTRY }}
           APP: ${{ github.event.repository.name }}
+          REF_NAME: ${{ github.ref_name }}
           HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
           HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
           DOCKER_CONFIG: /kaniko/.docker
           CORRELATION: ${{ steps.open.outputs.correlation }}
           SHA: ${{ github.sha }}
-        run: |
-          set -eu
-          short=$(printf '%s' "${{ github.sha }}" | cut -c1-7)
-          tag=$(printf '%s' "${{ github.ref_name }}-${short}" | sed 's/%20/_/g' | tr -cd '[:alnum:]_.-' | sed 's/^[.-]*//' | cut -c -128)
-          image="${REGISTRY}/apps-${APP}/app:${tag}"
-          share="/srv/shared/${CORRELATION}"
-          mkdir -p "$share"
-          chmod 777 "$share"
-          printf 'image=%s\ncommit=%s\n' "$image" "$SHA" > "$share/build-log.txt"
-          mkdir -p /kaniko/.docker
-          auth=$(printf '%s:%s' "$HARBOR_USERNAME" "$HARBOR_PASSWORD" | base64 | tr -d '\n')
-          printf '{"auths":{"https://%s":{"auth":"%s"},"%s":{"auth":"%s"}}}\n' "$REGISTRY" "$auth" "$REGISTRY" "$auth" > /kaniko/.docker/config.json
-          /kaniko/executor \
-            --context "$PWD" \
-            --dockerfile "$PWD/Dockerfile" \
-            --destination "$image" \
-            --ignore-path=/var/mail \
-            --ignore-path=/var/spool/mail \
-            --ignore-path=//product_uuid \
-            --ignore-path=/srv/shared \
-            --cleanup
-          echo "image=${image}" >> "$GITHUB_OUTPUT"
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+        run: bash .forgejo/scripts/build_push.sh
 
   scan:
     needs: build
@@ -149,10 +89,11 @@ jobs:
         run: |
           set -eu
           set +e
-          trivy image --username "$HARBOR_USERNAME" --password "$HARBOR_PASSWORD" --format json --output scan-result.json --timeout 15m "${{ needs.build.outputs.image }}"
+          trivy image --username "$HARBOR_USERNAME" --password "$HARBOR_PASSWORD" \
+            --format json --output scan-result.json --timeout 15m "${{ needs.build.outputs.image }}"
           status=$?
           set -e
-          if [ -f scan-result.json ]; then
+          if [ -f scan-result.json ] && [ -n "${CORRELATION:-}" ]; then
             mkdir -p "/srv/shared/${CORRELATION}"
             cp scan-result.json "/srv/shared/${CORRELATION}/scan-result.json"
           fi
@@ -173,155 +114,12 @@ jobs:
           REPO: ${{ github.repository }}
           TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
-        run: |
-          set -eu
-          apk add --no-cache git
-          base="${SERVER%/}"
-          case "$base" in
-            https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
-            http://*) origin="http://oauth2:${TOKEN}@${base#http://}" ;;
-            *) origin="http://oauth2:${TOKEN}@${base}" ;;
-          esac
-          git init .
-          git remote add origin "${origin}/${REPO}.git"
-          git fetch --depth 1 origin "$SHA"
-          git checkout FETCH_HEAD
+          APK_PACKAGES: git
+        run: *repo-checkout
       - name: npm test
         env:
           CORRELATION: ${{ needs.build.outputs.correlation }}
-        run: |
-          set -eu
-          export NODE_ENV=development
-          mkdir -p reports
-          npm i
-          set +e
-          npm run test
-          status=$?
-          set -e
-          if [ "$status" -ne 0 ]; then
-            echo "npm run test exited ${status}"
-          fi
-          if [ ! -f reports/unit-test.xml ]; then
-            echo "reports/unit-test.xml was not produced"
-            exit "$status"
-          fi
-          apk add --no-cache python3
-          cat > /tmp/nextjs-unit-test-formatter.py << 'ENDSCRIPT'
-          #!/usr/bin/env python3
-          import html
-          import xml.etree.ElementTree as ET
-          import json
-          import sys
-          import os
-          import argparse
-
-          def extract_failure_summary(content):
-              if not content:
-                  return ""
-              lines = content.split("\n")
-              summary_lines = []
-              for line in lines[:10]:
-                  line = line.strip()
-                  if line and not line.startswith("    at ") and not line.startswith("Error:"):
-                      if not any(skip in line.lower() for skip in ["stack trace", "at ", "node_modules"]):
-                          summary_lines.append(line)
-              if summary_lines:
-                  return "\n".join(summary_lines[:3])
-              for line in lines:
-                  if line.strip():
-                      return line.strip()
-              return content[:200] + "..." if len(content) > 200 else content
-
-          def parse_testcase(testcase_elem):
-              classname = testcase_elem.get("classname", "")
-              if classname.endswith((".ts", ".tsx", ".js", ".jsx")):
-                  filename = classname
-              else:
-                  filename = classname.replace(".", "/") + ".ts" if classname else ""
-              testcase = {
-                  "name": html.unescape(testcase_elem.get("name", "")),
-                  "location": filename or classname,
-                  "time": float(testcase_elem.get("time", 0)),
-                  "failure": None,
-                  "skipped": None,
-              }
-              failure_elem = testcase_elem.find("failure")
-              if failure_elem is not None:
-                  full_content = failure_elem.text.strip() if failure_elem.text else ""
-                  message = failure_elem.get("message", "") or extract_failure_summary(full_content)
-                  testcase["failure"] = {
-                      "message": message,
-                      "type": failure_elem.get("type", "") or "AssertionError",
-                      "content": full_content[-2000:] if full_content else message,
-                  }
-              error_elem = testcase_elem.find("error")
-              if error_elem is not None:
-                  full_content = error_elem.text.strip() if error_elem.text else ""
-                  message = error_elem.get("message", "") or extract_failure_summary(full_content)
-                  testcase["failure"] = {
-                      "message": message,
-                      "type": error_elem.get("type", "") or "Error",
-                      "content": full_content[-2000:] if full_content else message,
-                  }
-              skipped_elem = testcase_elem.find("skipped")
-              if skipped_elem is not None:
-                  testcase["skipped"] = {
-                      "message": skipped_elem.get("message", "") or "Test skipped",
-                      "type": "skip",
-                      "content": skipped_elem.text.strip() if skipped_elem.text else "",
-                  }
-              return testcase
-
-          def parse_testsuite(testsuite_elem):
-              testsuite = {
-                  "name": testsuite_elem.get("name", ""),
-                  "tests": int(testsuite_elem.get("tests", 0)),
-                  "failures": int(testsuite_elem.get("failures", 0)),
-                  "errors": int(testsuite_elem.get("errors", 0)),
-                  "skipped": int(testsuite_elem.get("skipped", 0)),
-                  "time": float(testsuite_elem.get("time", 0)),
-                  "timestamp": testsuite_elem.get("timestamp", ""),
-                  "testcases": [],
-              }
-              for testcase_elem in testsuite_elem.findall("testcase"):
-                  testsuite["testcases"].append(parse_testcase(testcase_elem))
-              return testsuite
-
-          def parse_junit_xml(xml_file):
-              tree = ET.parse(xml_file)
-              root = tree.getroot()
-              testsuites = []
-              if root.tag == "testsuites":
-                  for testsuite_elem in root.findall("testsuite"):
-                      testsuites.append(parse_testsuite(testsuite_elem))
-              elif root.tag == "testsuite":
-                  testsuites.append(parse_testsuite(root))
-              else:
-                  raise ValueError(f"Unexpected root element: {root.tag}")
-              return {"testsuites": testsuites}
-
-          def main():
-              parser = argparse.ArgumentParser(description="Convert JUnit XML to JSON")
-              parser.add_argument("xml_file")
-              args = parser.parse_args()
-              if not os.path.exists(args.xml_file):
-                  print(f"Error: File '{args.xml_file}' not found")
-                  sys.exit(1)
-              data = parse_junit_xml(args.xml_file)
-              json_file = f"{os.path.splitext(args.xml_file)[0]}.json"
-              with open(json_file, "w", encoding="utf-8") as handle:
-                  handle.write(json.dumps(data, indent=2))
-              print(f"Converted '{args.xml_file}' to '{json_file}'")
-
-          if __name__ == "__main__":
-              main()
-          ENDSCRIPT
-          python3 /tmp/nextjs-unit-test-formatter.py reports/unit-test.xml
-          if [ -n "$CORRELATION" ] && [ -f reports/unit-test.json ]; then
-            mkdir -p "/srv/shared/${CORRELATION}"
-            cp reports/unit-test.json "/srv/shared/${CORRELATION}/unit-test.json"
-          fi
-          exit "$status"
+        run: bash .forgejo/scripts/unit_test.sh
 
   lint:
     needs: build
@@ -338,95 +136,12 @@ jobs:
           REPO: ${{ github.repository }}
           TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
-        run: |
-          set -eu
-          apk add --no-cache git
-          base="${SERVER%/}"
-          case "$base" in
-            https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
-            http://*) origin="http://oauth2:${TOKEN}@${base#http://}" ;;
-            *) origin="http://oauth2:${TOKEN}@${base}" ;;
-          esac
-          git init .
-          git remote add origin "${origin}/${REPO}.git"
-          git fetch --depth 1 origin "$SHA"
-          git checkout FETCH_HEAD
+          APK_PACKAGES: git
+        run: *repo-checkout
       - name: ESLint
         env:
           CORRELATION: ${{ needs.build.outputs.correlation }}
-        run: |
-          set -eu
-          export NODE_ENV=development
-          npm i
-          set +e
-          npx eslint . --format json --output-file eslint.json
-          status=$?
-          set -e
-          apk add --no-cache python3
-          python3 - << 'PY'
-          import json
-          from pathlib import Path
-
-          raw_files = []
-          source = Path("eslint.json")
-          if source.is_file() and source.stat().st_size:
-              loaded = json.loads(source.read_text())
-              if isinstance(loaded, list):
-                  raw_files = loaded
-
-          testsuites = []
-          rules = []
-          for file_result in raw_files:
-              filename = file_result.get("filePath") or "unknown"
-              for item in file_result.get("messages") or []:
-                  code = item.get("ruleId") or "eslint"
-                  message = item.get("message") or ""
-                  row = item.get("line") or 0
-                  column = item.get("column") or 0
-                  severity_num = item.get("severity") or 1
-                  if severity_num >= 2:
-                      severity = "HIGH"
-                  elif severity_num == 1:
-                      severity = "MEDIUM"
-                  else:
-                      severity = "LOW"
-                  case_name = f"{code}:{filename}:{row}:{column}"
-                  detail = message
-                  testsuites.append({
-                      "name": case_name,
-                      "tests": 1,
-                      "failures": 1,
-                      "skipped": 0,
-                      "time": 0,
-                      "testcases": [{
-                          "name": case_name,
-                          "document": filename,
-                          "location": filename,
-                          "time": 0,
-                          "failure": {"message": detail, "type": code, "content": detail},
-                          "skipped": None,
-                      }],
-                  })
-                  rules.append({
-                      "title": code,
-                      "description": detail,
-                      "category": "General",
-                      "severity": severity,
-                      "ruleNumber": code,
-                      "remediation": "",
-                      "ruleName": case_name,
-                      "path": filename,
-                      "skipReason": "",
-                      "pattern": "",
-                      "packageName": code,
-                  })
-          Path("report.json").write_text(json.dumps({"testsuites": testsuites, "rules": rules}, indent=2))
-          PY
-          if [ -n "$CORRELATION" ] && [ -f report.json ]; then
-            mkdir -p "/srv/shared/${CORRELATION}"
-            cp report.json "/srv/shared/${CORRELATION}/report.json"
-          fi
-          exit "$status"
+        run: bash .forgejo/scripts/lint.sh
 
   notify:
     needs: [build, scan, unit-test, lint]
@@ -437,6 +152,13 @@ jobs:
       volumes:
         - /srv/shared:/srv/shared
     steps:
+      - name: Checkout
+        env:
+          SERVER: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: *repo-checkout
       - name: Publish build result
         env:
           APP: ${{ github.event.repository.name }}
@@ -453,69 +175,5 @@ jobs:
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
           CORE_BUCKET: ${{ vars.CORE_BUCKET }}
-        run: |
-          set -eu
-          python - << 'PY'
-          import json
-          import os
-          import subprocess
-          from pathlib import Path
-          correlation = os.environ["CORRELATION"]
-          tag = os.environ["TAG"]
-          app = os.environ["APP"]
-          bucket = os.environ["CORE_BUCKET"]
-          if not correlation:
-              marker = Path("/srv/shared") / f"run-{os.environ.get('RUN_ID', '')}"
-              if marker.is_file():
-                  correlation = marker.read_text().strip()
-          if not correlation:
-              raise SystemExit("build did not register a correlation id")
-          share = Path("/srv/shared") / correlation
-          status = "Succeeded" if os.environ["BUILD_RESULT"] == "success" else "Failed"
-          subprocess.check_call([
-              "mc", "alias", "set", "minio", os.environ["MINIO_URL"],
-              os.environ["MINIO_ACCESS_KEY"], os.environ["MINIO_SECRET_KEY"],
-          ])
-
-          def upload(name, key):
-              source = share / name
-              if not source.is_file():
-                  return ""
-              destination = f"{bucket}/{key}"
-              subprocess.check_call(["mc", "cp", str(source), f"minio/{destination}"])
-              return destination
-
-          details = {
-              "buildLogs": upload("build-log.txt", f"taskrun-logs/{app}/{correlation}.txt"),
-              "mxLintResults": upload("report.json", f"linting-results/{app}/{tag}.json") if tag else "",
-              "mxUnitTestingResults": upload("unit-test.json", f"unit-testing-results/{app}/{tag}.json") if tag else "",
-              "mxAppMdaMetadata": "",
-              "mxAppVulnerabilities": upload("scan-result.json", f"oci-scan-results/{app}/{tag}.json") if tag else "",
-              "commitId": os.environ["COMMIT"],
-              "backupId": "",
-              "backupDbLocation": "",
-              "backupStorageLocation": "",
-              "backupComment": "",
-              "actionsetName": "",
-              "packageId": tag,
-          }
-          message = {
-              "appName": app,
-              "envName": "",
-              "correlationId": correlation,
-              "requester": os.environ["REQUESTER"],
-              "status": status,
-              "details": details,
-          }
-          subprocess.check_call([
-              "python", "/usr/local/bin/push-pipeline-events.py",
-              "--host", os.environ["RABBITMQ_HOST"],
-              "--port", "5672",
-              "--username", os.environ["RABBITMQ_USERNAME"],
-              "--password", os.environ["RABBITMQ_PASSWORD"],
-              "--exchange", "lowops-exchange",
-              "--vhost", "/lowops-vhost",
-              "--routing-key", "controller.app.build.complete",
-              "--message", json.dumps(message),
-          ])
-          PY
+          LOWOPS_UNIT_TEST_FILE: unit-test.json
+        run: python .forgejo/scripts/publish_build.py
