@@ -6,27 +6,6 @@ on:
   push:
     branches: [main]
 
-x-repo-checkout: &repo-checkout |
-  set -eu
-  if [ -n "${APT_PACKAGES:-}" ]; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install -y --no-install-recommends ${APT_PACKAGES}
-  fi
-  if [ -n "${APK_PACKAGES:-}" ]; then
-    apk add --no-cache ${APK_PACKAGES}
-  fi
-  base="${SERVER%/}"
-  case "$base" in
-    https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
-    http://*) origin="http://oauth2:${TOKEN}@${base#http://}" ;;
-    *) origin="http://oauth2:${TOKEN}@${base}" ;;
-  esac
-  git init .
-  git remote add origin "${origin}/${REPO}.git"
-  git fetch --depth 1 origin "$SHA"
-  git checkout FETCH_HEAD
-
 jobs:
   build:
     runs-on: lowops
@@ -45,7 +24,28 @@ jobs:
           REPO: ${{ github.repository }}
           TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
-        run: *repo-checkout
+        # Bootstrap clone stays inline: repo scripts are not on disk yet.
+        # Later jobs reuse this script with *repo-checkout.
+        run: &repo-checkout |
+          set -eu
+          if [ -n "${APT_PACKAGES:-}" ]; then
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y --no-install-recommends ${APT_PACKAGES}
+          fi
+          if [ -n "${APK_PACKAGES:-}" ]; then
+            apk add --no-cache ${APK_PACKAGES}
+          fi
+          base="${SERVER%/}"
+          case "$base" in
+            https://*) origin="https://oauth2:${TOKEN}@${base#https://}" ;;
+            http://*) origin="http://oauth2:${TOKEN}@${base#http://}" ;;
+            *) origin="http://oauth2:${TOKEN}@${base}" ;;
+          esac
+          git init .
+          git remote add origin "${origin}/${REPO}.git"
+          git fetch --depth 1 origin "$SHA"
+          git checkout FETCH_HEAD
 
       - name: Register build
         id: open
