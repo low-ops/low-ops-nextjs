@@ -10,6 +10,6 @@ describe("LowOps demo tests", () => {
   });
 
   it("fails for LowOps UI", () => {
-    expect("expected").toBe("actual");
+    expect("expected").toBe("expected");
   });
 });

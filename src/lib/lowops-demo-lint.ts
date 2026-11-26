@@ -1,6 +1,5 @@
-const unusedDemoConstant = "lowops-demo-lint";
+const demoLabel = "lowops-demo-lint";
 
 export function lowopsDemoLintSample() {
-  const unusedLocal = unusedDemoConstant;
-  return "ok";
+  return demoLabel;
 }

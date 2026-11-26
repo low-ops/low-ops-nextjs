@@ -23,6 +23,9 @@ printf '{"auths":{"https://%s":{"auth":"%s"},"%s":{"auth":"%s"}}}\n' \
   --ignore-path=/var/spool/mail \
   --ignore-path=//product_uuid \
   --ignore-path=/srv/shared \
+  --snapshot-mode=redo \
+  --use-new-run \
+  --compressed-caching=false \
   --cleanup
 
 echo "image=${image}" >> "$GITHUB_OUTPUT"

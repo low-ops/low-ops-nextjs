@@ -7,8 +7,9 @@ export NODE_ENV=development
 npm i
 
 set +e
-npx eslint . --format json --output-file eslint.json
+npx eslint .
 eslint_status=$?
+npx eslint . --format json --output-file eslint.json
 set -e
 
 python3 "$root/eslint_to_report.py" eslint.json report.json
